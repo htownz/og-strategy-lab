@@ -1,0 +1,142 @@
+{
+  "applicationVersion": 2,
+  "name": "OG Strategy Lab",
+  "color": "#1E293B",
+  "icon": "trading-dashboard",
+  "userPermissions": [
+    "read:applications",
+    "manage:applications"
+  ],
+  "pages": [
+    {
+      "id": "Dashboard",
+      "isDefault": true,
+      "name": "Dashboard",
+      "layouts": [
+        {
+          "id": "Desktop",
+          "layoutType": "DESKTOP",
+          "widgetPositions": {}
+        }
+      ]
+    },
+    {
+      "id": "Signals",
+      "isDefault": false,
+      "name": "Signals",
+      "layouts": [
+        {
+          "id": "Desktop",
+          "layoutType": "DESKTOP",
+          "widgetPositions": {}
+        }
+      ]
+    },
+    {
+      "id": "Strategy",
+      "isDefault": false,
+      "name": "Strategy",
+      "layouts": [
+        {
+          "id": "Desktop",
+          "layoutType": "DESKTOP",
+          "widgetPositions": {}
+        }
+      ]
+    }
+  ],
+  "datasourceList": [
+    {
+      "name": "OG Strategy Lab DB",
+      "pluginId": "postgres-plugin",
+      "invalids": [],
+      "messages": [],
+      "datasourceConfiguration": {
+        "connection": {
+          "mode": "READ_WRITE",
+          "ssl": {
+            "authType": "DEFAULT"
+          }
+        },
+        "endpoints": [
+          {
+            "host": "postgres",
+            "port": 5432
+          }
+        ],
+        "authentication": {
+          "databaseName": "og_strategy_lab",
+          "username": "postgres",
+          "password": "postgres"
+        },
+        "querySettings": {
+          "queryTimeout": 30000
+        }
+      }
+    }
+  ],
+  "actionList": [
+    {
+      "name": "Get_Recent_Signals",
+      "pluginId": "postgres-plugin",
+      "datasource": {
+        "name": "OG Strategy Lab DB",
+        "pluginId": "postgres-plugin"
+      },
+      "actionConfiguration": {
+        "timeoutInMillisecond": 10000,
+        "paginationType": "NONE",
+        "encodeParamsToggle": true,
+        "body": "SELECT \n    id, \n    symbol, \n    direction, \n    confidence, \n    price_at_signal, \n    timestamp,\n    CASE \n        WHEN indicators::jsonb->>'strategy' IS NOT NULL THEN indicators::jsonb->>'strategy'\n        ELSE 'OG Strategy'\n    END as strategy,\n    CASE \n        WHEN indicators::jsonb->>'timeframe' IS NOT NULL THEN indicators::jsonb->>'timeframe'\n        ELSE '1H'\n    END as timeframe\nFROM signal\nORDER BY timestamp DESC\nLIMIT 20;",
+        "selfReferencingDataPaths": [],
+        "pluginSpecifiedTemplates": [
+          {
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Get_Strategy_Performance",
+      "pluginId": "postgres-plugin",
+      "datasource": {
+        "name": "OG Strategy Lab DB",
+        "pluginId": "postgres-plugin"
+      },
+      "actionConfiguration": {
+        "timeoutInMillisecond": 10000,
+        "paginationType": "NONE",
+        "encodeParamsToggle": true,
+        "body": "SELECT \n    CASE \n        WHEN s.indicators::jsonb->>'strategy' IS NOT NULL THEN s.indicators::jsonb->>'strategy'\n        ELSE 'OG Strategy'\n    END as strategy,\n    CASE \n        WHEN s.indicators::jsonb->>'timeframe' IS NOT NULL THEN s.indicators::jsonb->>'timeframe'\n        ELSE '1H'\n    END as timeframe,\n    COUNT(s.id) as signal_count,\n    COUNT(t.id) as trade_count,\n    AVG(t.profit_loss) as avg_profit_loss,\n    SUM(t.profit_loss) as total_profit_loss,\n    COUNT(CASE WHEN t.profit_loss > 0 THEN 1 END)::float / NULLIF(COUNT(t.id), 0) as win_rate\nFROM signal s\nLEFT JOIN trade t ON s.id = t.signal_id\nGROUP BY strategy, timeframe;",
+        "selfReferencingDataPaths": [],
+        "pluginSpecifiedTemplates": [
+          {
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Get_Signal_By_Id",
+      "pluginId": "postgres-plugin",
+      "datasource": {
+        "name": "OG Strategy Lab DB",
+        "pluginId": "postgres-plugin"
+      },
+      "actionConfiguration": {
+        "timeoutInMillisecond": 10000,
+        "paginationType": "NONE",
+        "encodeParamsToggle": true,
+        "body": "SELECT \n    id, \n    symbol, \n    direction, \n    confidence, \n    price_at_signal, \n    timestamp,\n    indicators\nFROM signal\nWHERE id = {{signals_table.selectedRow.id}}\nLIMIT 1;",
+        "selfReferencingDataPaths": [],
+        "pluginSpecifiedTemplates": [
+          {
+            "value": true
+          }
+        ]
+      }
+    }
+  ],
+  "actionCollectionList": [],
+  "jsSolutionList": []
+}

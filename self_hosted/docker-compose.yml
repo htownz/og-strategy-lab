@@ -1,0 +1,161 @@
+networks:
+  og_network:
+    driver: bridge
+services:
+  appsmith:
+    container_name: og_appsmith
+    image: appsmith/appsmith-ce:latest
+    networks:
+    - og_network
+    ports:
+    - 8080:80
+    - 9001:9001
+    restart: unless-stopped
+    volumes:
+    - appsmith_data:/appsmith-stacks
+  metabase:
+    container_name: og_metabase
+    environment:
+      MB_DB_DBNAME: ${POSTGRES_DB:-og_strategy_lab}
+      MB_DB_HOST: postgres
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-postgres}
+      MB_DB_PORT: 5432
+      MB_DB_TYPE: postgres
+      MB_DB_USER: ${POSTGRES_USER:-postgres}
+    image: metabase/metabase:latest
+    networks:
+    - og_network
+    ports:
+    - 3030:3000
+    restart: unless-stopped
+  mongodb:
+    command: mongod --oplogSize 128 --replSet rs0
+    container_name: og_mongodb
+    image: mongo:6
+    networks:
+    - og_network
+    restart: unless-stopped
+    volumes:
+    - mongodb_data:/data/db
+  ogstrategylab:
+    build:
+      context: ./og_strategy_lab
+      dockerfile: Dockerfile
+    container_name: og_strategy_lab
+    depends_on:
+    - postgres
+    - redis
+    environment:
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_API_SECRET: ${ALPACA_API_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-og_strategy_lab}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-default_secret_key_change_me}
+      REDIS_URL: redis://redis:6379/0
+      SERVER_NAME: ${SERVER_NAME:-localhost}
+    networks:
+    - og_network
+    ports:
+    - 5000:5000
+    restart: unless-stopped
+    volumes:
+    - ./og_strategy_lab:/app
+  postgres:
+    container_name: og_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-og_strategy_lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+      - CMD-SHELL
+      - pg_isready -U postgres
+      timeout: 5s
+    image: postgres:16-alpine
+    networks:
+    - og_network
+    ports:
+    - 5432:5432
+    restart: unless-stopped
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+  redis:
+    container_name: og_redis
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      timeout: 5s
+    image: redis:7-alpine
+    networks:
+    - og_network
+    ports:
+    - 6379:6379
+    restart: unless-stopped
+    volumes:
+    - redis_data:/data
+  rocketchat:
+    container_name: og_rocketchat
+    depends_on:
+    - mongodb
+    environment:
+      MONGO_OPLOG_URL: mongodb://mongodb:27017/local
+      MONGO_URL: mongodb://mongodb:27017/rocketchat
+      ROOT_URL: ${ROCKETCHAT_URL:-http://localhost:3000}
+    image: rocket.chat:latest
+    networks:
+    - og_network
+    ports:
+    - 3000:3000
+    restart: unless-stopped
+  superset:
+    command:
+    - /app/init_superset.sh
+    container_name: og_superset
+    depends_on:
+    - postgres
+    - redis
+    environment:
+      DATABASE_DB: ${POSTGRES_DB:-og_strategy_lab}
+      DATABASE_DIALECT: postgresql
+      DATABASE_HOST: postgres
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-default_superset_key_change_me}
+    image: apache/superset:latest
+    networks:
+    - og_network
+    ports:
+    - 8088:8088
+    restart: unless-stopped
+    volumes:
+    - superset_home:/app/superset_home
+    - ./superset/superset_config.py:/app/pythonpath/superset_config.py
+    - ./superset/dashboards:/app/dashboards
+    - ./superset/init_superset.sh:/app/init_superset.sh
+  uptime-kuma:
+    container_name: og_uptime_kuma
+    image: louislam/uptime-kuma:latest
+    networks:
+    - og_network
+    ports:
+    - 3001:3001
+    restart: unless-stopped
+    volumes:
+    - uptime_kuma_data:/app/data
+version: '3.8'
+volumes:
+  appsmith_data: null
+  mongodb_data: null
+  postgres_data: null
+  redis_data: null
+  superset_home: null
+  uptime_kuma_data: null
