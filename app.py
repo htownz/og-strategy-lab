@@ -7,6 +7,7 @@ from sqlalchemy.orm import DeclarativeBase
 from webhook_routes import register_webhook_blueprint
 from alpaca_routes import register_alpaca_blueprint
 from flask import render_template
+from socketio_service import socketio, get_socketio_service
 
 # Configure logging
 logging.basicConfig(
@@ -24,6 +25,10 @@ db = SQLAlchemy(model_class=Base)
 
 # Create Flask application
 app = Flask(__name__)
+
+#Initialize Socket.IO
+socketio_service = get_socketio_service()
+socketio_service.init_app(app)
 
 # Configure the app
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-key-please-change')
@@ -113,4 +118,4 @@ def discord_config():
     
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    socketio.run(app, host='0.0.0.0', port=port)
