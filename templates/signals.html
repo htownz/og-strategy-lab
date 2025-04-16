@@ -1,489 +1,773 @@
-{% extends "base.html" %}
-
-{% block title %}Signals - OG Signal Bot{% endblock %}
-
-{% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h2 mb-0">Signal History</h1>
-            <p class="text-secondary">View and analyze past trading signals</p>
-        </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
-                <i class="fa fa-filter me-2"></i> Filter Options
+<!-- templates/signals.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Signals - OG Strategy Lab</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">OG Strategy Lab</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
             </button>
-            <a href="{{ url_for('signals') }}" class="btn btn-outline-secondary">
-                <i class="fa fa-rotate me-2"></i> Reset
-            </a>
-        </div>
-    </div>
-    
-    <!-- Filter options -->
-    <div class="collapse mb-4" id="filterCollapse">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Filter Signals</h5>
-                <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#filterCollapse"></button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/signals">Signals</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/discord">Discord</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/alpaca">Alpaca</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">Settings</a>
+                    </li>
+                </ul>
             </div>
-            <div class="card-body">
-                <form class="row g-3" method="get">
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="symbolFilter" name="symbol" value="{{ request.args.get('symbol', '') }}" placeholder="Symbol">
-                            <label for="symbolFilter">Symbol</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <select class="form-select" id="directionFilter" name="direction">
-                                <option value="" {% if not request.args.get('direction') %}selected{% endif %}>All Directions</option>
-                                <option value="UP" {% if request.args.get('direction') == 'UP' %}selected{% endif %}>LONG/CALL</option>
-                                <option value="DOWN" {% if request.args.get('direction') == 'DOWN' %}selected{% endif %}>SHORT/PUT</option>
-                            </select>
-                            <label for="directionFilter">Direction</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <select class="form-select" id="dateFilter" name="daterange">
-                                <option value="" {% if not request.args.get('daterange') %}selected{% endif %}>All Time</option>
-                                <option value="today" {% if request.args.get('daterange') == 'today' %}selected{% endif %}>Today</option>
-                                <option value="yesterday" {% if request.args.get('daterange') == 'yesterday' %}selected{% endif %}>Yesterday</option>
-                                <option value="week" {% if request.args.get('daterange') == 'week' %}selected{% endif %}>This Week</option>
-                                <option value="month" {% if request.args.get('daterange') == 'month' %}selected{% endif %}>This Month</option>
-                            </select>
-                            <label for="dateFilter">Date Range</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-center">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fa fa-search me-2"></i> Apply Filters
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card bg-dark text-light border-secondary mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Trading Signals</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#generateSignalModal">
+                            <i class="bi bi-plus-circle"></i> New Signal
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Stats Row -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stat-card up">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <div class="stat-value">{{ signals_stats.get('total', 0) }}</div>
-                        <div class="stat-label">Total Signals</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fa fa-bolt"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card up">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <div class="stat-value">{{ signals_stats.get('executed', 0) }}</div>
-                        <div class="stat-label">Executed Signals</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fa fa-check-circle"></i>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Direction</th>
+                                        <th>Confidence</th>
+                                        <th>Price</th>
+                                        <th>Timestamp</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="signals-table-body">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            Loading signals...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="signals-pagination" class="d-flex justify-content-center mt-3">
+                            <!-- Pagination will be added here -->
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card up">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <div class="stat-value">{{ signals_stats.get('longs', 0) }}</div>
-                        <div class="stat-label">Long Signals</div>
+            <div class="col-md-4">
+                <div class="card bg-dark text-light border-secondary mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Watchlist Scanner</h5>
                     </div>
-                    <div class="stat-icon text-success">
-                        <i class="fa fa-arrow-up"></i>
+                    <div class="card-body">
+                        <form id="scanner-form">
+                            <div class="mb-3">
+                                <label for="watchlist" class="form-label">Watchlist Symbols</label>
+                                <textarea class="form-control bg-dark text-light border-secondary" id="watchlist" rows="4" placeholder="Enter symbols separated by commas (e.g., AAPL, MSFT, AMZN)"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="timeframe" class="form-label">Timeframe</label>
+                                <select class="form-select bg-dark text-light border-secondary" id="timeframe">
+                                    <option value="1D">Daily (1D)</option>
+                                    <option value="1H">Hourly (1H)</option>
+                                    <option value="15Min">15 Minutes</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Scan for OG Setups
+                            </button>
+                        </form>
+                        
+                        <div id="scan-results" class="mt-3 d-none">
+                            <h6>Scan Results</h6>
+                            <div id="scan-results-content">
+                                <!-- Scan results will be shown here -->
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card down">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <div class="stat-value">{{ signals_stats.get('shorts', 0) }}</div>
-                        <div class="stat-label">Short Signals</div>
-                    </div>
-                    <div class="stat-icon text-danger">
-                        <i class="fa fa-arrow-down"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Signals Table -->
-    <div class="card">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Signal History</h5>
-                <div>
-                    {% if signals.items and signals.total %}
-                        <span class="badge bg-secondary">{{ signals.total }} signals found</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="card-body">
-            {% if signals.items %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Symbol</th>
-                                <th>Direction</th>
-                                <th>Confidence</th>
-                                <th>Price at Signal</th>
-                                <th>Timeframe</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for signal in signals.items %}
-                            <tr class="signal-row" data-signal-id="{{ signal.id }}">
-                                <td>{{ signal.timestamp|format_timestamp }}</td>
-                                <td><strong>{{ signal.symbol }}</strong></td>
-                                <td>
-                                    <span class="badge {% if signal.direction == 'UP' %}bg-success{% else %}bg-danger{% endif %} py-2 px-3">
-                                        {% if signal.direction == 'UP' %}
-                                            <i class="fa fa-arrow-up me-1"></i> LONG
-                                        {% else %}
-                                            <i class="fa fa-arrow-down me-1"></i> SHORT
-                                        {% endif %}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="progress flex-grow-1 me-2" style="height: 8px;">
-                                            <div class="progress-bar bg-{{ 'success' if signal.direction == 'UP' else 'danger' }}" 
-                                                 role="progressbar" 
-                                                 style="width: {{ signal.confidence * 100 }}%" 
-                                                 aria-valuenow="{{ signal.confidence * 100 }}" 
-                                                 aria-valuemin="0" 
-                                                 aria-valuemax="100">
-                                            </div>
-                                        </div>
-                                        <span>{{ (signal.confidence * 100)|int }}%</span>
-                                    </div>
-                                </td>
-                                <td>${{ "%.2f"|format(signal.price_at_signal) }}</td>
-                                <td>
-                                    <span class="badge bg-dark">
-                                        {{ signal.timeframe if signal.timeframe else '1H' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if signal.executed %}
-                                        <span class="badge bg-success py-2 px-3">
-                                            <i class="fa fa-check me-1"></i> Executed
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-secondary py-2 px-3">
-                                            <i class="fa fa-clock me-1"></i> Pending
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#signalModal{{ signal.id }}">
-                                            <i class="fa fa-eye"></i>
-                                        </button>
-                                        {% if not signal.executed %}
-                                        <button type="button" class="btn btn-sm btn-outline-success execute-signal-btn" data-signal-id="{{ signal.id }}">
-                                            <i class="fa fa-play"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <!-- Signal Details Modal -->
-                                    <div class="modal fade" id="signalModal{{ signal.id }}" tabindex="-1" aria-labelledby="signalModalLabel{{ signal.id }}" aria-hidden="true">
-                                        <div class="modal-dialog modal-lg">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="signalModalLabel{{ signal.id }}">
-                                                        <i class="fa fa-bolt text-warning me-2"></i>
-                                                        Signal Details: {{ signal.symbol }}
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="card mb-3">
-                                                                <div class="card-header">
-                                                                    <h6 class="mb-0">Signal Information</h6>
-                                                                </div>
-                                                                <div class="card-body">
-                                                                    <table class="table table-sm">
-                                                                        <tr>
-                                                                            <th>Symbol:</th>
-                                                                            <td>{{ signal.symbol }}</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th>Direction:</th>
-                                                                            <td class="{% if signal.direction == 'UP' %}text-success{% else %}text-danger{% endif %}">
-                                                                                {% if signal.direction == 'UP' %}
-                                                                                    <i class="fa fa-arrow-up me-1"></i> LONG
-                                                                                {% else %}
-                                                                                    <i class="fa fa-arrow-down me-1"></i> SHORT
-                                                                                {% endif %}
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th>Confidence:</th>
-                                                                            <td>{{ (signal.confidence * 100)|int }}%</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th>Price at Signal:</th>
-                                                                            <td>${{ "%.2f"|format(signal.price_at_signal) }}</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th>Timestamp:</th>
-                                                                            <td>{{ signal.timestamp|format_timestamp }}</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th>Status:</th>
-                                                                            <td>{{ "Executed" if signal.executed else "Pending" }}</td>
-                                                                        </tr>
-                                                                    </table>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div class="col-md-6">
-                                                            {% if signal.indicators %}
-                                                            <div class="card mb-3">
-                                                                <div class="card-header">
-                                                                    <h6 class="mb-0">Technical Indicators</h6>
-                                                                </div>
-                                                                <div class="card-body">
-                                                                    <div class="table-responsive">
-                                                                        <table class="table table-sm">
-                                                                            <tbody>
-                                                                                {% for key, value in signal.indicators.items() %}
-                                                                                <tr>
-                                                                                    <th>{{ key }}:</th>
-                                                                                    <td>{{ value }}</td>
-                                                                                </tr>
-                                                                                {% endfor %}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {% endif %}
-                                                            
-                                                            {% if signal.trades %}
-                                                            <div class="card">
-                                                                <div class="card-header">
-                                                                    <h6 class="mb-0">Related Trades</h6>
-                                                                </div>
-                                                                <div class="card-body">
-                                                                    <div class="table-responsive">
-                                                                        <table class="table table-sm">
-                                                                            <thead>
-                                                                                <tr>
-                                                                                    <th>Direction</th>
-                                                                                    <th>Quantity</th>
-                                                                                    <th>Time</th>
-                                                                                    <th>Status</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                {% for trade in signal.trades %}
-                                                                                <tr>
-                                                                                    <td>{{ trade.direction }}</td>
-                                                                                    <td>{{ trade.quantity }}</td>
-                                                                                    <td>{{ trade.timestamp|format_timestamp }}</td>
-                                                                                    <td>
-                                                                                        <span class="badge bg-{{ 'success' if trade.status == 'FILLED' else 'warning' if trade.status == 'SUBMITTED' else 'danger' if trade.status == 'REJECTED' else 'secondary' }}">
-                                                                                            {{ trade.status }}
-                                                                                        </span>
-                                                                                    </td>
-                                                                                </tr>
-                                                                                {% endfor %}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    {% if not signal.executed %}
-                                                    <button type="button" class="btn btn-success execute-signal-btn" data-signal-id="{{ signal.id }}">
-                                                        <i class="fa fa-play me-2"></i> Execute Signal
-                                                    </button>
-                                                    {% endif %}
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
                 
-                <!-- Pagination -->
-                <nav aria-label="Page navigation" class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        {% if signals.has_prev %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ url_for('signals', page=signals.prev_num, **request.args) }}">
-                                    <i class="fa fa-chevron-left"></i> Previous
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
-                                    <i class="fa fa-chevron-left"></i> Previous
-                                </a>
-                            </li>
-                        {% endif %}
-                        
-                        {% for page_num in signals.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                            {% if page_num %}
-                                {% if page_num == signals.page %}
-                                    <li class="page-item active">
-                                        <a class="page-link" href="#">{{ page_num }}</a>
-                                    </li>
-                                {% else %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('signals', page=page_num, **request.args) }}">{{ page_num }}</a>
-                                    </li>
-                                {% endif %}
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#">...</a>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-                        
-                        {% if signals.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ url_for('signals', page=signals.next_num, **request.args) }}">
-                                    Next <i class="fa fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
-                                    Next <i class="fa fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            {% else %}
-                <div class="d-flex flex-column align-items-center py-5">
-                    <div class="text-center mb-4">
-                        <i class="fa fa-search fa-4x text-secondary mb-3"></i>
-                        <h4>No signals found</h4>
-                        <p class="text-secondary">No signals match your current filter criteria.</p>
+                <div class="card bg-dark text-light border-secondary mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Signal Filters</h5>
                     </div>
-                    <a href="{{ url_for('signals') }}" class="btn btn-primary">
-                        <i class="fa fa-rotate me-2"></i> Reset Filters
-                    </a>
+                    <div class="card-body">
+                        <form id="filter-form">
+                            <div class="mb-3">
+                                <label for="symbol-filter" class="form-label">Symbol</label>
+                                <input type="text" class="form-control bg-dark text-light border-secondary" id="symbol-filter" placeholder="e.g., AAPL">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="direction-filter" class="form-label">Direction</label>
+                                <select class="form-select bg-dark text-light border-secondary" id="direction-filter">
+                                    <option value="">All</option>
+                                    <option value="BULLISH">Bullish</option>
+                                    <option value="BEARISH">Bearish</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-secondary w-100">
+                                <i class="bi bi-funnel"></i> Apply Filters
+                            </button>
+                        </form>
+                    </div>
                 </div>
-            {% endif %}
+            </div>
         </div>
     </div>
-</div>
+    
+    <!-- Generate Signal Modal -->
+    <div class="modal fade" id="generateSignalModal" tabindex="-1" aria-labelledby="generateSignalModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="generateSignalModalLabel">Generate Signal</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" id="signalTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab" aria-controls="manual" aria-selected="true">Manual Signal</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="og-tab" data-bs-toggle="tab" data-bs-target="#og" type="button" role="tab" aria-controls="og" aria-selected="false">OG Strategy</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3" id="signalTabsContent">
+                        <div class="tab-pane fade show active" id="manual" role="tabpanel" aria-labelledby="manual-tab">
+                            <form id="manual-signal-form">
+                                <div class="mb-3">
+                                    <label for="symbol" class="form-label">Symbol</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="symbol" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="direction" class="form-label">Direction</label>
+                                    <select class="form-select bg-dark text-light border-secondary" id="direction" required>
+                                        <option value="BULLISH">Bullish</option>
+                                        <option value="BEARISH">Bearish</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confidence" class="form-label">Confidence (0.0 - 1.0)</label>
+                                    <input type="range" class="form-range" id="confidence" min="0" max="1" step="0.1" value="0.7">
+                                    <div class="text-center" id="confidence-value">0.7</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="price" class="form-label">Price at Signal</label>
+                                    <input type="number" class="form-control bg-dark text-light border-secondary" id="price" step="0.01" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="indicators" class="form-label">Indicators (JSON)</label>
+                                    <textarea class="form-control bg-dark text-light border-secondary" id="indicators" rows="3" placeholder='{"ema": true, "rsi": 65}'></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">Generate Signal</button>
+                            </form>
+                        </div>
+                        <div class="tab-pane fade" id="og" role="tabpanel" aria-labelledby="og-tab">
+                            <form id="og-signal-form">
+                                <div class="mb-3">
+                                    <label for="og-symbol" class="form-label">Symbol</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="og-symbol" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="og-timeframe" class="form-label">Timeframe</label>
+                                    <select class="form-select bg-dark text-light border-secondary" id="og-timeframe">
+                                        <option value="1D">Daily (1D)</option>
+                                        <option value="1H">Hourly (1H)</option>
+                                        <option value="15Min">15 Minutes</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="contract-type" class="form-label">Contract Type</label>
+                                    <select class="form-select bg-dark text-light border-secondary" id="contract-type">
+                                        <option value="">Auto Detect</option>
+                                        <option value="CALL">Call Option</option>
+                                        <option value="PUT">Put Option</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="expiry" class="form-label">Expiry Date (Optional)</label>
+                                    <input type="date" class="form-control bg-dark text-light border-secondary" id="expiry">
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">Generate OG Signal</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <div id="modal-status" class="d-none alert w-100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signal Detail Modal -->
+    <div class="modal fade" id="signalDetailModal" tabindex="-1" aria-labelledby="signalDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="signalDetailModalLabel">Signal Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="signal-detail-content">
+                    <!-- Signal details will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
 
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Execute signal buttons
-    const executeButtons = document.querySelectorAll('.execute-signal-btn');
-    executeButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const signalId = this.getAttribute('data-signal-id');
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const signalsTableBody = document.getElementById('signals-table-body');
+            const confidenceSlider = document.getElementById('confidence');
+            const confidenceValue = document.getElementById('confidence-value');
+            const manualSignalForm = document.getElementById('manual-signal-form');
+            const ogSignalForm = document.getElementById('og-signal-form');
+            const scannerForm = document.getElementById('scanner-form');
+            const filterForm = document.getElementById('filter-form');
+            const modalStatus = document.getElementById('modal-status');
+            const scanResults = document.getElementById('scan-results');
+            const scanResultsContent = document.getElementById('scan-results-content');
             
-            // Disable button and show loading state
-            this.disabled = true;
-            const originalHtml = this.innerHTML;
-            this.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            // Load signals on page load
+            loadSignals();
             
-            // Call the API to execute the signal
-            fetch('/api/execute-signal/' + signalId, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+            // Update confidence value display when slider changes
+            confidenceSlider.addEventListener('input', function() {
+                confidenceValue.textContent = this.value;
+            });
+            
+            // Handle manual signal form submission
+            manualSignalForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+                const direction = document.getElementById('direction').value;
+                const confidence = document.getElementById('confidence').value;
+                const price = document.getElementById('price').value;
+                const indicatorsStr = document.getElementById('indicators').value.trim();
+                
+                let indicators = null;
+                if (indicatorsStr) {
+                    try {
+                        indicators = JSON.parse(indicatorsStr);
+                    } catch (error) {
+                        showModalStatus('Invalid JSON in indicators field', 'danger');
+                        return;
+                    }
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Show success message
-                    const toastContainer = document.createElement('div');
-                    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-                    toastContainer.innerHTML = `
-                        <div class="toast bg-success text-white" role="alert" aria-live="assertive" aria-atomic="true">
-                            <div class="toast-header bg-success text-white">
-                                <i class="fa fa-check-circle me-2"></i>
-                                <strong class="me-auto">Success</strong>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                            </div>
-                            <div class="toast-body">
-                                Signal execution initiated successfully.
+                
+                try {
+                    showModalStatus('Generating signal...', 'info');
+                    
+                    const response = await fetch('/api/signals/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            symbol,
+                            direction,
+                            confidence: parseFloat(confidence),
+                            price: parseFloat(price),
+                            indicators
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showModalStatus(data.message, 'success');
+                        
+                        // Reset form
+                        manualSignalForm.reset();
+                        
+                        // Reload signals
+                        loadSignals();
+                        
+                        // Close modal after delay
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('generateSignalModal'));
+                            modal.hide();
+                        }, 1500);
+                    } else {
+                        showModalStatus(data.message, 'danger');
+                    }
+                } catch (error) {
+                    showModalStatus('Error generating signal: ' + error.message, 'danger');
+                }
+            });
+            
+            // Handle OG signal form submission
+            ogSignalForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const symbol = document.getElementById('og-symbol').value.trim().toUpperCase();
+                const timeframe = document.getElementById('og-timeframe').value;
+                const contractType = document.getElementById('contract-type').value;
+                const expiry = document.getElementById('expiry').value;
+                
+                try {
+                    showModalStatus('Analyzing symbol and generating OG signal...', 'info');
+                    
+                    const response = await fetch('/api/signals/og-signal', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            symbol,
+                            timeframe,
+                            contract_type: contractType,
+                            expiry
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showModalStatus(data.message, 'success');
+                        
+                        // Reset form
+                        ogSignalForm.reset();
+                        
+                        // Reload signals
+                        loadSignals();
+                        
+                        // Close modal after delay
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('generateSignalModal'));
+                            modal.hide();
+                        }, 1500);
+                    } else {
+                        showModalStatus(data.message, 'warning');
+                    }
+                } catch (error) {
+                    showModalStatus('Error generating OG signal: ' + error.message, 'danger');
+                }
+            });
+            
+            // Handle scanner form submission
+            scannerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const watchlistStr = document.getElementById('watchlist').value.trim();
+                const timeframe = document.getElementById('timeframe').value;
+                
+                if (!watchlistStr) {
+                    alert('Please enter at least one symbol');
+                    return;
+                }
+                
+                // Parse symbols
+                const symbols = watchlistStr.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+                
+                if (symbols.length === 0) {
+                    alert('Please enter at least one valid symbol');
+                    return;
+                }
+                
+                try {
+                    scanResultsContent.innerHTML = `
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
                     `;
-                    document.body.appendChild(toastContainer);
+                    scanResults.classList.remove('d-none');
                     
-                    const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
-                    toast.show();
+                    const response = await fetch('/api/signals/scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            symbols,
+                            timeframe
+                        })
+                    });
                     
-                    // Reload the page after a short delay
-                    setTimeout(() => {
-                        location.reload();
-                    }, 2000);
-                } else {
-                    // Show error message
-                    alert('Error executing signal: ' + data.message);
+                    const data = await response.json();
                     
-                    // Restore button
-                    this.disabled = false;
-                    this.innerHTML = originalHtml;
+                    if (data.success) {
+                        const results = data.results;
+                        
+                        if (results.signals.length === 0) {
+                            scanResultsContent.innerHTML = `
+                                <div class="alert alert-info mb-0">
+                                    No OG strategy setups found in the watchlist.
+                                </div>
+                            `;
+                        } else {
+                            let html = `
+                                <div class="alert alert-success mb-3">
+                                    Found ${results.signals.length} OG strategy setups!
+                                </div>
+                                <div class="list-group list-group-flush bg-dark">
+                            `;
+                            
+                            results.signals.forEach(signal => {
+                                const direction = signal.direction;
+                                const directionClass = direction === 'BULLISH' ? 'text-success' : 'text-danger';
+                                
+                                html += `
+                                    <div class="list-group-item bg-dark text-light border-secondary">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <strong>${signal.symbol}</strong>
+                                            <span class="${directionClass}">${direction}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <span class="text-muted">Confidence: ${(signal.confidence * 100).toFixed(1)}%</span>
+                                            <span>Price: $${signal.price_at_signal.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            
+                            html += '</div>';
+                            
+                            scanResultsContent.innerHTML = html;
+                            
+                            // Reload signals to show the new ones
+                            loadSignals();
+                        }
+                    } else {
+                        scanResultsContent.innerHTML = `
+                            <div class="alert alert-danger mb-0">
+                                ${data.message}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    scanResultsContent.innerHTML = `
+                        <div class="alert alert-danger mb-0">
+                            Error scanning watchlist: ${error.message}
+                        </div>
+                    `;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error executing signal. See console for details.');
-                
-                // Restore button
-                this.disabled = false;
-                this.innerHTML = originalHtml;
             });
+            
+            // Handle filter form submission
+            filterForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                loadSignals();
+            });
+            
+            // Load signals with optional filters
+            async function loadSignals() {
+                try {
+                    signalsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center">
+                                <div class="spinner-border text-secondary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    
+                    // Get filters
+                    const symbolFilter = document.getElementById('symbol-filter').value.trim();
+                    const directionFilter = document.getElementById('direction-filter').value;
+                    
+                    // Build query parameters
+                    let params = new URLSearchParams();
+                    params.append('limit', 20);
+                    
+                    if (symbolFilter) {
+                        params.append('symbol', symbolFilter.toUpperCase());
+                    }
+                    
+                    if (directionFilter) {
+                        params.append('direction', directionFilter);
+                    }
+                    
+                    const response = await fetch(`/api/signals/list?${params.toString()}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const signals = data.signals;
+                        
+                        if (signals.length === 0) {
+                            signalsTableBody.innerHTML = `
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        No signals found
+                                    </td>
+                                </tr>
+                            `;
+                        } else {
+                            let html = '';
+                            
+                            signals.forEach(signal => {
+                                const direction = signal.direction;
+                                const directionClass = direction === 'BULLISH' ? 'text-success' : 'text-danger';
+                                const timestamp = new Date(signal.timestamp).toLocaleString();
+                                
+                                html += `
+                                    <tr>
+                                        <td>${signal.symbol}</td>
+                                        <td class="${directionClass}">${direction}</td>
+                                        <td>${(signal.confidence * 100).toFixed(1)}%</td>
+                                        <td>$${signal.price_at_signal.toFixed(2)}</td>
+                                        <td>${timestamp}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-info" onclick="showSignalDetails(${signal.id})">
+                                                <i class="bi bi-info-circle"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            signalsTableBody.innerHTML = html;
+                        }
+                    } else {
+                        signalsTableBody.innerHTML = `
+                            <tr>
+                                <td colspan="6" class="text-center text-danger">
+                                    Error loading signals
+                                </td>
+                            </tr>
+                        `;
+                    }
+                } catch (error) {
+                    signalsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-danger">
+                                Error: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            // Show modal status message
+            function showModalStatus(message, type) {
+                modalStatus.textContent = message;
+                modalStatus.className = `alert alert-${type}`;
+                modalStatus.classList.remove('d-none');
+            }
+            
+            // Make the showSignalDetails function global
+            window.showSignalDetails = async function(signalId) {
+                try {
+                    const response = await fetch(`/api/signals/list?limit=1&signal_id=${signalId}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.signals.length > 0) {
+                        const signal = data.signals[0];
+                        const direction = signal.direction;
+                        const directionClass = direction === 'BULLISH' ? 'text-success' : 'text-danger';
+                        const timestamp = new Date(signal.timestamp).toLocaleString();
+                        
+                        // Parse indicators
+                        let indicators = {};
+                        if (signal.indicators) {
+                            try {
+                                indicators = JSON.parse(signal.indicators);
+                            } catch (e) {
+                                console.error('Error parsing indicators:', e);
+                            }
+                        }
+                        
+                        let html = `
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h3>${signal.symbol} <span class="${directionClass}">${direction}</span></h3>
+                                    <p class="text-muted">${timestamp}</p>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <h3>$${signal.price_at_signal.toFixed(2)}</h3>
+                                    <p>Confidence: ${(signal.confidence * 100).toFixed(1)}%</p>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Add key levels if available
+                        if (indicators.key_levels) {
+                            const levels = indicators.key_levels;
+                            
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <h5>Key Levels</h5>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Entry</h6>
+                                                <p class="mb-0">$${levels.entry.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Stop</h6>
+                                                <p class="mb-0">$${levels.stop.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Target 1</h6>
+                                                <p class="mb-0">$${levels.target1.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Target 2</h6>
+                                                <p class="mb-0">$${levels.target2.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // Add options contract if available
+                        if (indicators.contract) {
+                            const contract = indicators.contract;
+                            
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <h5>Options Contract</h5>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Type</h6>
+                                                <p class="mb-0">${contract.type}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Strike</h6>
+                                                <p class="mb-0">$${contract.strike.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-dark border-secondary">
+                                            <div class="card-body p-2 text-center">
+                                                <h6>Expiration</h6>
+                                                <p class="mb-0">${contract.expiration || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // Add technical signals if available
+                        if (indicators.technical_signals) {
+                            const signals = indicators.technical_signals;
+                            
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <h5>Technical Signals</h5>
+                                    </div>
+                                    <div class="col">
+                                        <ul class="list-group list-group-flush bg-dark">
+                            `;
+                            
+                            for (const [key, value] of Object.entries(signals)) {
+                                let icon, iconClass;
+                                
+                                if (value === true) {
+                                    icon = 'bi-check-circle-fill';
+                                    iconClass = 'text-success';
+                                } else if (value === false) {
+                                    icon = 'bi-x-circle-fill';
+                                    iconClass = 'text-danger';
+                                } else {
+                                    icon = 'bi-info-circle-fill';
+                                    iconClass = 'text-info';
+                                }
+                                
+                                html += `
+                                    <li class="list-group-item bg-dark text-light border-secondary d-flex justify-content-between align-items-center">
+                                        <span>${key.replace(/_/g, ' ').toUpperCase()}</span>
+                                        <i class="bi ${icon} ${iconClass}"></i>
+                                    </li>
+                                `;
+                            }
+                            
+                            html += `
+                                        </ul>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // Add raw indicators data
+                        html += `
+                            <div class="row">
+                                <div class="col-12">
+                                    <h5>All Signal Data</h5>
+                                    <pre class="bg-dark text-light p-3 border border-secondary rounded">${JSON.stringify(signal, null, 2)}</pre>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.getElementById('signal-detail-content').innerHTML = html;
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('signalDetailModal'));
+                        modal.show();
+                    } else {
+                        alert('Signal not found');
+                    }
+                } catch (error) {
+                    console.error('Error showing signal details:', error);
+                    alert('Error showing signal details: ' + error.message);
+                }
+            };
         });
-    });
-    
-    // Auto-open filter if there are any active filters
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('symbol') || urlParams.has('direction') || urlParams.has('daterange')) {
-        // Open the filter collapse
-        const filterCollapse = new bootstrap.Collapse(document.getElementById('filterCollapse'), {
-            toggle: true
-        });
-    }
-});
-</script>
-{% endblock %}
-{% endblock %}
+    </script>
+</body>
+</html>
