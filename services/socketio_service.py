@@ -1,341 +1,149 @@
-# signal_service.py
+# socketio_service.py
 
 import os
-import json
 import logging
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from models import Signal, db
+import json
+from datetime import datetime
+from flask import request
+from flask_socketio import SocketIO, emit, disconnect
 
 logger = logging.getLogger(__name__)
 
-class SignalService:
+# Initialize SocketIO
+socketio = SocketIO()
+
+class SocketIOService:
     """
-    Service for generating and processing trading signals
+    Service for managing Socket.IO real-time connections and events
     """
     
-    def __init__(self):
-        """Initialize signal service"""
-        self.signal_window = 14  # Number of days to look back for signals
+    def __init__(self, app=None):
+        """Initialize Socket.IO service"""
+        self.clients = {}
+        self.app = app
         
-        # Import services here to avoid circular imports
-        from alpaca_service import get_alpaca_service
-        from discord_service import get_discord_service
-        
-        self.alpaca = get_alpaca_service()
-        self.discord = get_discord_service()
-        
-        logger.info("Signal service initialized")
-        
-    def generate_signal(self, symbol, direction, confidence, price, indicators=None):
-        """
-        Generate a new trading signal
-        
-        Args:
-            symbol: Asset symbol
-            direction: Signal direction (BULLISH or BEARISH)
-            confidence: Signal confidence (0.0 to 1.0)
-            price: Asset price at signal time
-            indicators: Dictionary of technical indicators
-            
-        Returns:
-            Created Signal object or None on error
-        """
-        try:
-            # Create indicators JSON if provided
-            indicators_json = None
-            if indicators:
-                indicators_json = json.dumps(indicators)
-            
-            # Create new signal
-            signal = Signal(
-                symbol=symbol,
-                direction=direction.upper(),
-                confidence=float(confidence),
-                price_at_signal=float(price),
-                indicators=indicators_json,
-                timestamp=datetime.now()
-            )
-            
-            # Save to database
-            db.session.add(signal)
-            db.session.commit()
-            
-            logger.info(f"Generated signal: {symbol} {direction} with confidence {confidence:.2f}")
-            
-            # Send to Discord if enabled
-            if hasattr(self.discord, 'enabled') and self.discord.enabled:
-                self.discord.send_signal(signal)
-            
-            # Broadcast via Socket.IO if available
-            try:
-                from socketio_service import get_socketio_service
-                socketio_service = get_socketio_service()
-                if socketio_service:
-                    socketio_service.broadcast_signal(signal)
-            except Exception as e:
-                logger.warning(f"Could not broadcast signal via Socket.IO: {str(e)}")
-            
-            return signal
-        except Exception as e:
-            logger.error(f"Error generating signal: {str(e)}")
-            db.session.rollback()
-            return None
+        if app:
+            self.init_app(app)
     
-    def get_recent_signals(self, limit=20, symbol=None, direction=None, signal_id=None):
-        """
-        Get recent trading signals with optional filtering
+    def init_app(self, app):
+        """Initialize with Flask app"""
+        self.app = app
         
-        Args:
-            limit: Maximum number of signals to return
-            symbol: Optional filter by symbol
-            direction: Optional filter by direction
-            signal_id: Optional filter by signal ID
-            
-        Returns:
-            List of Signal objects
-        """
-        try:
-            query = Signal.query.order_by(Signal.timestamp.desc())
-            
-            if symbol:
-                query = query.filter(Signal.symbol == symbol)
-                
-            if direction:
-                query = query.filter(Signal.direction == direction.upper())
-                
-            if signal_id:
-                query = query.filter(Signal.id == signal_id)
-                
-            return query.limit(limit).all()
-        except Exception as e:
-            logger.error(f"Error getting recent signals: {str(e)}")
-            return []
+        # Configure Socket.IO
+        socketio.init_app(
+            app,
+            cors_allowed_origins="*",
+            async_mode="eventlet",
+            logger=True,
+            engineio_logger=True
+        )
+        
+        # Register event handlers
+        self._register_handlers()
+        
+        logger.info("Socket.IO service initialized")
     
-    def generate_og_signal(self, symbol, timeframe='1D', contract_type=None, expiry=None):
-        """
-        Generate an OG strategy signal for a symbol
+    def _register_handlers(self):
+        """Register Socket.IO event handlers"""
         
-        Args:
-            symbol: Asset symbol
-            timeframe: Chart timeframe (1D, 1H, etc.)
-            contract_type: Optional option contract type (CALL or PUT)
-            expiry: Optional option expiry date
+        @socketio.on('connect')
+        def handle_connect():
+            """Handle client connection"""
+            client_id = request.sid
+            self.clients[client_id] = {
+                'connected_at': datetime.now().isoformat(),
+                'client_info': {}
+            }
+            logger.info(f"Client connected: {client_id}")
             
-        Returns:
-            Generated Signal object or None on error
-        """
-        try:
-            # Get market data from Alpaca
-            if not hasattr(self.alpaca, 'enabled') or not self.alpaca.enabled:
-                logger.error("Alpaca service is not configured, cannot generate OG signal")
-                return None
-            
-            # Adjust timeframe for Alpaca API
-            alpaca_timeframe = timeframe
-            if timeframe == '1D':
-                alpaca_timeframe = '1Day'
-            elif timeframe == '1H':
-                alpaca_timeframe = '1Hour'
-            
-            # Get bars
-            bars = self.alpaca.get_bars(symbol, alpaca_timeframe, limit=50)
-            if bars is None or len(bars) < 20:
-                logger.error(f"Insufficient data for {symbol} to generate OG signal")
-                return None
-            
-            # Convert to pandas DataFrame
-            df = pd.DataFrame(bars)
-            
-            # Calculate EMAs
-            df['ema8'] = df['close'].ewm(span=8, adjust=False).mean()
-            df['ema21'] = df['close'].ewm(span=21, adjust=False).mean()
-            
-            # Detect EMA cloud setup
-            df['ema_cloud'] = (df['ema8'] > df['ema21'])
-            
-            # Check for OG pattern
-            # Simplified example - in a real system, you'd have more complex logic
-            current_price = df['close'].iloc[-1]
-            ema8 = df['ema8'].iloc[-1]
-            ema21 = df['ema21'].iloc[-1]
-            
-            # BULLISH: Price above EMA8, EMA8 above EMA21, with increasing volume
-            bullish = (current_price > ema8 and ema8 > ema21 and 
-                       df['volume'].iloc[-1] > df['volume'].iloc[-2])
-            
-            # BEARISH: Price below EMA8, EMA8 below EMA21, with increasing volume
-            bearish = (current_price < ema8 and ema8 < ema21 and 
-                       df['volume'].iloc[-1] > df['volume'].iloc[-2])
-            
-            # Determine direction and confidence
-            if bullish:
-                direction = "BULLISH"
-                confidence = 0.7  # Base confidence
-                
-                # Add more confidence based on volume and price action
-                volume_ratio = df['volume'].iloc[-1] / df['volume'].iloc[-10:-1].mean()
-                if volume_ratio > 1.5:
-                    confidence += 0.1
-                
-                # Calculate key levels
-                entry = current_price
-                stop = min(df['low'].iloc[-5:])
-                target1 = entry + (entry - stop)
-                target2 = entry + 2 * (entry - stop)
-                
-                # Determine option contract details if provided
-                contract = {}
-                if contract_type and contract_type.upper() == 'CALL':
-                    strike = np.ceil(current_price / 5) * 5  # Round to nearest $5 above
-                    contract = {
-                        'type': 'CALL',
-                        'strike': float(strike)
-                    }
-                    if expiry:
-                        contract['expiration'] = expiry
-                
-                # Create indicators dictionary
-                indicators = {
-                    'strategy': 'OG Strategy',
-                    'timeframe': timeframe,
-                    'technical_signals': {
-                        'ema_cloud': True,
-                        'ob_fvg': True,
-                        'volume': True if volume_ratio > 1.2 else False,
-                        'price_action': True
-                    },
-                    'key_levels': {
-                        'entry': float(entry),
-                        'stop': float(stop),
-                        'target1': float(target1),
-                        'target2': float(target2)
-                    },
-                    'setup_type': 'EMA + FVG + OB'
-                }
-                
-                if contract:
-                    indicators['contract'] = contract
-                
-                # Generate the signal
-                return self.generate_signal(
-                    symbol=symbol,
-                    direction=direction,
-                    confidence=confidence,
-                    price=current_price,
-                    indicators=indicators
-                )
-                
-            elif bearish:
-                direction = "BEARISH"
-                confidence = 0.7  # Base confidence
-                
-                # Add more confidence based on volume and price action
-                volume_ratio = df['volume'].iloc[-1] / df['volume'].iloc[-10:-1].mean()
-                if volume_ratio > 1.5:
-                    confidence += 0.1
-                
-                # Calculate key levels
-                entry = current_price
-                stop = max(df['high'].iloc[-5:])
-                target1 = entry - (stop - entry)
-                target2 = entry - 2 * (stop - entry)
-                
-                # Determine option contract details if provided
-                contract = {}
-                if contract_type and contract_type.upper() == 'PUT':
-                    strike = np.floor(current_price / 5) * 5  # Round to nearest $5 below
-                    contract = {
-                        'type': 'PUT',
-                        'strike': float(strike)
-                    }
-                    if expiry:
-                        contract['expiration'] = expiry
-                
-                # Create indicators dictionary
-                indicators = {
-                    'strategy': 'OG Strategy',
-                    'timeframe': timeframe,
-                    'technical_signals': {
-                        'ema_cloud': True,
-                        'ob_fvg': True,
-                        'volume': True if volume_ratio > 1.2 else False,
-                        'price_action': True
-                    },
-                    'key_levels': {
-                        'entry': float(entry),
-                        'stop': float(stop),
-                        'target1': float(target1),
-                        'target2': float(target2)
-                    },
-                    'setup_type': 'EMA + FVG + OB'
-                }
-                
-                if contract:
-                    indicators['contract'] = contract
-                
-                # Generate the signal
-                return self.generate_signal(
-                    symbol=symbol,
-                    direction=direction,
-                    confidence=confidence,
-                    price=current_price,
-                    indicators=indicators
-                )
-            
-            else:
-                logger.info(f"No OG pattern detected for {symbol}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error generating OG signal for {symbol}: {str(e)}")
-            return None
-    
-    def scan_watchlist(self, symbols, timeframe='1D'):
-        """
-        Scan a watchlist for OG strategy setups
+            # Acknowledge connection
+            emit('server_ready', {
+                'server_id': 'OG-Strategy-Lab-Server',
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'server_status': 'healthy',
+                'server_version': '1.0.0'
+            })
         
-        Args:
-            symbols: List of symbols to scan
-            timeframe: Chart timeframe
-            
-        Returns:
-            Dictionary with scan results
-        """
-        results = {
-            'timestamp': datetime.now().isoformat(),
-            'timeframe': timeframe,
-            'total_symbols': len(symbols),
-            'signals': [],
-            'errors': []
-        }
+        @socketio.on('disconnect')
+        def handle_disconnect():
+            """Handle client disconnection"""
+            client_id = request.sid
+            if client_id in self.clients:
+                del self.clients[client_id]
+            logger.info(f"Client disconnected: {client_id}")
         
-        for symbol in symbols:
-            try:
-                signal = self.generate_og_signal(symbol, timeframe)
-                if signal:
-                    results['signals'].append(signal.to_dict())
-            except Exception as e:
-                logger.error(f"Error scanning {symbol}: {str(e)}")
-                results['errors'].append({
-                    'symbol': symbol,
-                    'error': str(e)
+        @socketio.on('client_ready')
+        def handle_client_ready(data):
+            """Handle client ready event"""
+            client_id = request.sid
+            client_info = data.get('client_info', {})
+            
+            if client_id in self.clients:
+                self.clients[client_id]['client_info'] = client_info
+                logger.info(f"Client ready: {client_id}")
+                logger.debug(f"Client details: {client_info}")
+            
+            # Send server ready response
+            emit('server_ready', {
+                'server_id': 'OG-Strategy-Lab-Server',
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'server_status': 'healthy',
+                'server_version': '1.0.0'
+            })
+        
+        @socketio.on('request_signals')
+        def handle_request_signals(data):
+            """Handle request for signals"""
+            limit = data.get('limit', 10)
+            
+            with self.app.app_context():
+                from models import Signal
+                signals = Signal.query.order_by(Signal.timestamp.desc()).limit(limit).all()
+                
+                emit('signals_update', {
+                    'signals': [signal.to_dict() for signal in signals],
+                    'timestamp': datetime.now().isoformat()
                 })
         
-        results['signals_found'] = len(results['signals'])
-        results['errors_count'] = len(results['errors'])
+        @socketio.on('request_market_status')
+        def handle_market_status():
+            """Handle request for market status"""
+            from alpaca_service import get_alpaca_service
+            
+            alpaca = get_alpaca_service()
+            market_status = alpaca.get_market_status()
+            
+            emit('market_status_update', {
+                'market': market_status,
+                'timestamp': datetime.now().isoformat()
+            })
         
-        return results
-
-# Singleton instance
-signal_service = None
-
-def get_signal_service():
-    """Get singleton instance of SignalService"""
-    global signal_service
+        @socketio.on('ping')
+        def handle_ping():
+            """Handle ping event"""
+            emit('pong', {
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        @socketio.on('health_check')
+        def handle_health_check():
+            """Handle health check request"""
+            emit('health_response', {
+                'status': 'healthy',
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'server_uptime': 'Active'
+            })
     
-    if signal_service is None:
-        signal_service = SignalService()
+    def broadcast_signal(self, signal):
+        """
+        Broadcast a new signal to all connected clients
         
-    return signal_service
+        Args:
+            signal: Signal object or dictionary with signal data
+        """
+        try:
+            # Convert to dictionary if needed
+            if hasattr(signal, 'to_dict'):
+                signal_data = signal.to_dict()
+            else:
+                signal_data ...
