@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Basic Backtesting{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Simplified Backtesting Interface</h1>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Run Basic Backtest</h5>
+                </div>
+                <div class="card-body">
+                    <form id="backtest-form" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="symbols" class="form-label">Symbols (comma-separated)</label>
+                            <input type="text" class="form-control" id="symbols" name="symbols" 
+                                value="{{ default_symbols }}" required>
+                            <div class="invalid-feedback">
+                                Please enter at least one symbol.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="timeframe" class="form-label">Timeframe</label>
+                            <select class="form-select" id="timeframe" name="timeframe" required>
+                                {% for tf in timeframes %}
+                                <option value="{{ tf }}">{{ tf }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">
+                                Please select a timeframe.
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Run Backtest</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">API Status</h5>
+                </div>
+                <div class="card-body">
+                    <div id="api-status">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border text-primary me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span>Checking API status...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Available Endpoints</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <a href="/bt/health" target="_blank">/bt/health</a>
+                            <small class="d-block text-muted">Health check endpoint</small>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="/bt/api/test" target="_blank">/bt/api/test</a>
+                            <small class="d-block text-muted">Test API endpoint</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check API status
+        fetch('/bt/health')
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('api-status');
+                if (data.status === 'healthy') {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success mb-0">
+                            <i class="bi bi-check-circle me-2"></i>
+                            API is healthy and ready
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            API is not responding correctly
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('api-status').innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Could not connect to API: ${error.message}
+                    </div>
+                `;
+            });
+            
+        // Form validation
+        const form = document.getElementById('backtest-form');
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (!form.checkValidity()) {
+                event.stopPropagation();
+                form.classList.add('was-validated');
+                return;
+            }
+            
+            // Show successful submission
+            const symbols = document.getElementById('symbols').value;
+            const timeframe = document.getElementById('timeframe').value;
+            
+            // For now, just show an alert with the submission info
+            alert(`Backtest requested for symbols: ${symbols}, timeframe: ${timeframe}`);
+        });
+    });
+</script>
+{% endblock %}

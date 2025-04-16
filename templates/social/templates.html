@@ -1,0 +1,400 @@
+{% extends "social/share.html" %}
+
+{% block share_title %}
+<i class="fas fa-pen-to-square me-2 text-primary"></i> Customize Sharing Templates
+{% endblock %}
+
+{% block share_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Customize how your trading data appears when shared on social media
+        </div>
+    </div>
+</div>
+
+<!-- Template Type Tabs -->
+<ul class="nav nav-tabs mb-4" id="templateTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="signal-tab" data-bs-toggle="tab" data-bs-target="#signal-tab-pane" type="button" role="tab" aria-controls="signal-tab-pane" aria-selected="true">
+            <i class="fas fa-bolt me-2"></i> Signal Template
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance-tab-pane" type="button" role="tab" aria-controls="performance-tab-pane" aria-selected="false">
+            <i class="fas fa-chart-line me-2"></i> Performance Template
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-tab-pane" type="button" role="tab" aria-controls="strategy-tab-pane" aria-selected="false">
+            <i class="fas fa-sitemap me-2"></i> Strategy Template
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="templateTabsContent">
+    <!-- Signal Template Tab -->
+    <div class="tab-pane fade show active" id="signal-tab-pane" role="tabpanel" aria-labelledby="signal-tab" tabindex="0">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="form-group mb-4">
+                    <label for="signal-title-template" class="form-label">Title Template</label>
+                    <input type="text" class="form-control" id="signal-title-template" value="New Trading Signal: {symbol} {direction}">
+                    <div class="form-text">
+                        Available variables: {symbol}, {direction}, {price}, {confidence}, {timeframe}, {strategy}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="signal-text-template" class="form-label">Text Template</label>
+                    <textarea class="form-control" id="signal-text-template" rows="5">I just got a new {confidence_level} conviction {direction} signal on {symbol} using the OG Strategy. Price: ${price} | Timeframe: {timeframe}</textarea>
+                    <div class="form-text">
+                        Available variables: {symbol}, {direction}, {price}, {confidence}, {confidence_level}, {timeframe}, {strategy}, {setup_type}, {timestamp}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Preview</h6>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="mb-3" id="signal-title-preview">New Trading Signal: AAPL BULLISH</h5>
+                        <p id="signal-text-preview">I just got a new high conviction BULLISH signal on AAPL using the OG Strategy. Price: $185.50 | Timeframe: 1H</p>
+                    </div>
+                </div>
+                <div class="mt-4 text-end">
+                    <button class="btn btn-primary" id="save-signal-template">
+                        <i class="fas fa-save me-2"></i> Save Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Performance Template Tab -->
+    <div class="tab-pane fade" id="performance-tab-pane" role="tabpanel" aria-labelledby="performance-tab" tabindex="0">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="form-group mb-4">
+                    <label for="performance-title-template" class="form-label">Title Template</label>
+                    <input type="text" class="form-control" id="performance-title-template" value="My Trading Performance">
+                    <div class="form-text">
+                        Available variables: {win_rate}, {profit_loss}, {num_trades}, {period}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="performance-text-template" class="form-label">Text Template</label>
+                    <textarea class="form-control" id="performance-text-template" rows="5">My OG Strategy trading performance: {win_rate}% win rate, {profit_loss} P&L over {period} days. #{num_trades} trades completed.</textarea>
+                    <div class="form-text">
+                        Available variables: {win_rate}, {profit_loss}, {num_trades}, {period}, {avg_profit_loss}, {timestamp}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Preview</h6>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="mb-3" id="performance-title-preview">My Trading Performance</h5>
+                        <p id="performance-text-preview">My OG Strategy trading performance: 62.5% win rate, $1,250.75 P&L over 30 days. #48 trades completed.</p>
+                    </div>
+                </div>
+                <div class="mt-4 text-end">
+                    <button class="btn btn-primary" id="save-performance-template">
+                        <i class="fas fa-save me-2"></i> Save Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Strategy Template Tab -->
+    <div class="tab-pane fade" id="strategy-tab-pane" role="tabpanel" aria-labelledby="strategy-tab" tabindex="0">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="form-group mb-4">
+                    <label for="strategy-title-template" class="form-label">Title Template</label>
+                    <input type="text" class="form-control" id="strategy-title-template" value="My Trading Strategy">
+                    <div class="form-text">
+                        Available variables: {name}, {win_rate}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="strategy-text-template" class="form-label">Text Template</label>
+                    <textarea class="form-control" id="strategy-text-template" rows="5">I use the OG Strategy which combines EMA Cloud, Order Blocks, and Fair Value Gaps for high probability setups. Current win rate: {win_rate}%</textarea>
+                    <div class="form-text">
+                        Available variables: {name}, {win_rate}, {description}, {timestamp}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Preview</h6>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="mb-3" id="strategy-title-preview">My Trading Strategy</h5>
+                        <p id="strategy-text-preview">I use the OG Strategy which combines EMA Cloud, Order Blocks, and Fair Value Gaps for high probability setups. Current win rate: 62.5%</p>
+                    </div>
+                </div>
+                <div class="mt-4 text-end">
+                    <button class="btn btn-primary" id="save-strategy-template">
+                        <i class="fas fa-save me-2"></i> Save Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Templates Button -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="text-end">
+            <button class="btn btn-outline-secondary" id="reset-templates">
+                <i class="fas fa-rotate-left me-2"></i> Reset to Default Templates
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load current templates from the server
+    fetch('/social/api/templates')
+    .then(response => response.json())
+    .then(data => {
+        const templates = data.templates;
+        
+        // Update form values with current templates
+        if (templates.signal) {
+            document.getElementById('signal-title-template').value = templates.signal.title;
+            document.getElementById('signal-text-template').value = templates.signal.text;
+        }
+        
+        if (templates.performance) {
+            document.getElementById('performance-title-template').value = templates.performance.title;
+            document.getElementById('performance-text-template').value = templates.performance.text;
+        }
+        
+        if (templates.strategy) {
+            document.getElementById('strategy-title-template').value = templates.strategy.title;
+            document.getElementById('strategy-text-template').value = templates.strategy.text;
+        }
+        
+        // Update previews
+        updateSignalPreview();
+        updatePerformancePreview();
+        updateStrategyPreview();
+    })
+    .catch(error => {
+        console.error('Error loading templates:', error);
+    });
+    
+    // Live preview of signal template
+    const signalTitleTemplate = document.getElementById('signal-title-template');
+    const signalTextTemplate = document.getElementById('signal-text-template');
+    
+    signalTitleTemplate.addEventListener('input', updateSignalPreview);
+    signalTextTemplate.addEventListener('input', updateSignalPreview);
+    
+    function updateSignalPreview() {
+        const titleTemplate = signalTitleTemplate.value;
+        const textTemplate = signalTextTemplate.value;
+        
+        // Sample signal data for preview
+        const sampleData = {
+            symbol: 'AAPL',
+            direction: 'BULLISH',
+            price: '185.50',
+            confidence: 0.85,
+            confidence_level: 'high',
+            timeframe: '1H',
+            strategy: 'OG Strategy',
+            setup_type: 'EMA + OB + FVG',
+            timestamp: '2025-04-16 12:30'
+        };
+        
+        // Format the templates with the sample data
+        let title = titleTemplate;
+        let text = textTemplate;
+        
+        for (const [key, value] of Object.entries(sampleData)) {
+            title = title.replace(new RegExp(`{${key}}`, 'g'), value);
+            text = text.replace(new RegExp(`{${key}}`, 'g'), value);
+        }
+        
+        document.getElementById('signal-title-preview').textContent = title;
+        document.getElementById('signal-text-preview').textContent = text;
+    }
+    
+    // Live preview of performance template
+    const performanceTitleTemplate = document.getElementById('performance-title-template');
+    const performanceTextTemplate = document.getElementById('performance-text-template');
+    
+    performanceTitleTemplate.addEventListener('input', updatePerformancePreview);
+    performanceTextTemplate.addEventListener('input', updatePerformancePreview);
+    
+    function updatePerformancePreview() {
+        const titleTemplate = performanceTitleTemplate.value;
+        const textTemplate = performanceTextTemplate.value;
+        
+        // Sample performance data for preview
+        const sampleData = {
+            win_rate: '62.5',
+            profit_loss: '$1,250.75',
+            num_trades: '48',
+            period: '30',
+            avg_profit_loss: '$26.06',
+            timestamp: '2025-04-16'
+        };
+        
+        // Format the templates with the sample data
+        let title = titleTemplate;
+        let text = textTemplate;
+        
+        for (const [key, value] of Object.entries(sampleData)) {
+            title = title.replace(new RegExp(`{${key}}`, 'g'), value);
+            text = text.replace(new RegExp(`{${key}}`, 'g'), value);
+        }
+        
+        document.getElementById('performance-title-preview').textContent = title;
+        document.getElementById('performance-text-preview').textContent = text;
+    }
+    
+    // Live preview of strategy template
+    const strategyTitleTemplate = document.getElementById('strategy-title-template');
+    const strategyTextTemplate = document.getElementById('strategy-text-template');
+    
+    strategyTitleTemplate.addEventListener('input', updateStrategyPreview);
+    strategyTextTemplate.addEventListener('input', updateStrategyPreview);
+    
+    function updateStrategyPreview() {
+        const titleTemplate = strategyTitleTemplate.value;
+        const textTemplate = strategyTextTemplate.value;
+        
+        // Sample strategy data for preview
+        const sampleData = {
+            name: 'OG Strategy',
+            win_rate: '62.5',
+            description: 'Combines EMA Cloud, Order Blocks, and Fair Value Gaps for high probability setups',
+            timestamp: '2025-04-16'
+        };
+        
+        // Format the templates with the sample data
+        let title = titleTemplate;
+        let text = textTemplate;
+        
+        for (const [key, value] of Object.entries(sampleData)) {
+            title = title.replace(new RegExp(`{${key}}`, 'g'), value);
+            text = text.replace(new RegExp(`{${key}}`, 'g'), value);
+        }
+        
+        document.getElementById('strategy-title-preview').textContent = title;
+        document.getElementById('strategy-text-preview').textContent = text;
+    }
+    
+    // Save template buttons
+    document.getElementById('save-signal-template').addEventListener('click', function() {
+        saveTemplate('signal', {
+            title: signalTitleTemplate.value,
+            text: signalTextTemplate.value
+        });
+    });
+    
+    document.getElementById('save-performance-template').addEventListener('click', function() {
+        saveTemplate('performance', {
+            title: performanceTitleTemplate.value,
+            text: performanceTextTemplate.value
+        });
+    });
+    
+    document.getElementById('save-strategy-template').addEventListener('click', function() {
+        saveTemplate('strategy', {
+            title: strategyTitleTemplate.value,
+            text: strategyTextTemplate.value
+        });
+    });
+    
+    function saveTemplate(templateType, templateData) {
+        fetch(`/social/api/templates/${templateType}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(templateData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success notification
+                showNotification('Template saved successfully!', 'success');
+            } else {
+                // Show error notification
+                showNotification('Error saving template', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving template:', error);
+            showNotification('Error saving template', 'danger');
+        });
+    }
+    
+    // Reset templates button
+    document.getElementById('reset-templates').addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset all templates to default?')) {
+            fetch('/social/api/templates/reset', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the page to show default templates
+                    window.location.reload();
+                } else {
+                    showNotification('Error resetting templates', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error resetting templates:', error);
+                showNotification('Error resetting templates', 'danger');
+            });
+        }
+    });
+    
+    // Show notification
+    function showNotification(message, type) {
+        const toastContainer = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.classList.add('toast', 'align-items-center', 'text-white', `bg-${type}`, 'border-0');
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast, { autohide: true, delay: 3000 });
+        bsToast.show();
+        
+        // Remove the toast from the DOM after it's hidden
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+</script>
+{% endblock %}

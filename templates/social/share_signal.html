@@ -1,0 +1,213 @@
+{% extends "social/share.html" %}
+
+{% block share_title %}
+<i class="fas fa-bolt me-2 text-warning"></i> Share Trading Signal
+{% endblock %}
+
+{% block share_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Select a signal to share on your social media platforms
+        </div>
+    </div>
+</div>
+
+<!-- Signal Selection -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label for="signal-select" class="form-label">Choose Signal</label>
+        <select class="form-select" id="signal-select">
+            <option value="" selected disabled>Select a signal...</option>
+            {% for signal in signals %}
+            <option value="{{ signal.id }}">{{ signal.symbol }} {{ signal.direction }} | {{ signal.timestamp.strftime('%Y-%m-%d %H:%M') }} | Confidence: {{ (signal.confidence * 100)|int }}%</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Signal Preview -->
+<div id="signal-preview" class="row mb-4 d-none">
+    <div class="col-md-12">
+        <div class="card bg-dark">
+            <div class="card-header">
+                <h5 class="mb-0">Signal Preview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 id="preview-signal-title" class="mb-3"></h5>
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Ticker</span>
+                            <span id="preview-symbol" class="fs-5"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Direction</span>
+                            <span id="preview-direction" class="fs-5"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Price</span>
+                            <span id="preview-price" class="fs-5"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Confidence</span>
+                            <span id="preview-confidence" class="fs-5"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Setup</span>
+                            <span id="preview-setup" class="fs-5"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div id="preview-signal-icon" class="display-1 mb-3">
+                                <i class="fas fa-bolt text-warning"></i>
+                            </div>
+                            <p id="preview-timestamp" class="text-muted"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Social Sharing Options -->
+<div id="sharing-options" class="row mb-4 d-none">
+    <div class="col-md-12">
+        <h5 class="mb-3">Share on:</h5>
+        <div class="d-flex gap-2 flex-wrap" id="platform-buttons">
+            <!-- Buttons will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Preview Button -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="text-end">
+            <button id="preview-share" class="btn btn-primary d-none" data-content-type="signal">
+                <i class="fas fa-eye me-2"></i> Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="sharePreviewModal" tabindex="-1" aria-labelledby="sharePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sharePreviewModalLabel">Share Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Title:</strong>
+                    <p id="preview-title" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <strong>Text:</strong>
+                    <p id="preview-text" class="mb-0"></p>
+                </div>
+                <div id="preview-image-container" class="mb-3 d-none">
+                    <strong>Image:</strong>
+                    <div class="mt-2">
+                        <img id="preview-image" class="img-fluid border rounded" alt="Preview image">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const signalSelect = document.getElementById('signal-select');
+    const signalPreview = document.getElementById('signal-preview');
+    const sharingOptions = document.getElementById('sharing-options');
+    const platformButtons = document.getElementById('platform-buttons');
+    const previewBtn = document.getElementById('preview-share');
+    
+    if (signalSelect) {
+        signalSelect.addEventListener('change', function() {
+            const signalId = this.value;
+            if (!signalId) {
+                signalPreview.classList.add('d-none');
+                sharingOptions.classList.add('d-none');
+                previewBtn.classList.add('d-none');
+                return;
+            }
+            
+            // Fetch signal details
+            fetch(`/social/api/signal/${signalId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Update preview
+                document.getElementById('preview-signal-title').textContent = `${data.symbol} ${data.direction} Signal`;
+                document.getElementById('preview-symbol').textContent = data.symbol;
+                document.getElementById('preview-direction').textContent = data.direction;
+                document.getElementById('preview-price').textContent = `$${data.price}`;
+                document.getElementById('preview-confidence').textContent = `${Math.round(data.confidence * 100)}%`;
+                document.getElementById('preview-setup').textContent = data.setup_type;
+                document.getElementById('preview-timestamp').textContent = data.timestamp;
+                
+                // Direction indicator
+                const iconEl = document.getElementById('preview-signal-icon');
+                iconEl.innerHTML = data.direction === 'BULLISH' ? 
+                    '<i class="fas fa-arrow-trend-up text-success"></i>' : 
+                    '<i class="fas fa-arrow-trend-down text-danger"></i>';
+                
+                // Show the preview
+                signalPreview.classList.remove('d-none');
+                
+                // Update preview button
+                previewBtn.setAttribute('data-content-id', signalId);
+                previewBtn.classList.remove('d-none');
+                
+                // Get sharing links
+                fetch(`/social/api/share/signal/${signalId}`)
+                .then(response => response.json())
+                .then(shareData => {
+                    // Clear previous buttons
+                    platformButtons.innerHTML = '';
+                    
+                    // Add button for each platform
+                    for (const [platform, data] of Object.entries(shareData.links)) {
+                        const btn = document.createElement('a');
+                        btn.href = data.url;
+                        btn.classList.add('btn', 'social-share-btn');
+                        btn.style.backgroundColor = data.color;
+                        btn.style.color = '#ffffff';
+                        btn.setAttribute('data-platform', platform);
+                        btn.setAttribute('data-content-type', 'signal');
+                        btn.setAttribute('data-content-id', signalId);
+                        btn.innerHTML = `<i class="${data.icon} me-2"></i> ${data.name}`;
+                        platformButtons.appendChild(btn);
+                    }
+                    
+                    // Show sharing options
+                    sharingOptions.classList.remove('d-none');
+                })
+                .catch(error => {
+                    console.error('Error fetching sharing links:', error);
+                    sharingOptions.classList.add('d-none');
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching signal details:', error);
+                signalPreview.classList.add('d-none');
+                sharingOptions.classList.add('d-none');
+                previewBtn.classList.add('d-none');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

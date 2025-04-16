@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Market Settings - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="mb-3">Market Integration Settings</h2>
+            <p class="text-secondary">Configure market data sources and trading execution parameters.</p>
+        </div>
+    </div>
+    
+    <!-- Alert Container -->
+    <div id="alertContainer" class="mb-4"></div>
+
+    <div class="row g-4">
+        <!-- Data Provider Settings Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fa fa-chart-line me-2 text-accent"></i>
+                        Data Providers
+                    </h5>
+                    <span id="dataProviderStatus" class="badge bg-success">Connected</span>
+                </div>
+                <div class="card-body">
+                    <form id="dataProviderForm">
+                        <div class="mb-4">
+                            <h6 class="mb-3">Primary Data Source</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="dataProvider" id="alpacaDataProvider" value="alpaca" checked>
+                                <label class="form-check-label" for="alpacaDataProvider">
+                                    Alpaca Market Data API
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="dataProvider" id="quotestreamProvider" value="quotestream">
+                                <label class="form-check-label" for="quotestreamProvider">
+                                    QuotestreamPY (Real-time)
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="dataProvider" id="hybridProvider" value="hybrid">
+                                <label class="form-check-label" for="hybridProvider">
+                                    Hybrid (QuotestreamPY + Alpaca)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">API Credentials</h6>
+                            <div class="mb-3">
+                                <label for="alpacaApiKey" class="form-label">Alpaca API Key</label>
+                                <input type="password" class="form-control" id="alpacaApiKey" placeholder="Enter your Alpaca API key">
+                            </div>
+                            <div class="mb-3">
+                                <label for="alpacaApiSecret" class="form-label">Alpaca API Secret</label>
+                                <input type="password" class="form-control" id="alpacaApiSecret" placeholder="Enter your Alpaca API secret">
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="isPaperTrading" checked>
+                                <label class="form-check-label" for="isPaperTrading">Use Paper Trading Environment</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">Data Update Settings</h6>
+                            <div class="mb-3">
+                                <label for="updateInterval" class="form-label">Update Interval (ms)</label>
+                                <input type="number" class="form-control" id="updateInterval" min="500" max="10000" value="2000">
+                                <div class="form-text">Minimum recommended: 1000ms (1 second)</div>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="enableExtendedHours" checked>
+                                <label class="form-check-label" for="enableExtendedHours">Enable Extended Hours Data</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-floppy-disk me-2"></i> Save Data Provider Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trading Execution Settings Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fa fa-money-bill-transfer me-2 text-accent"></i>
+                        Trading Execution
+                    </h5>
+                    <span id="tradingStatus" class="badge bg-warning">Paper Trading</span>
+                </div>
+                <div class="card-body">
+                    <form id="tradingExecutionForm">
+                        <div class="mb-4">
+                            <h6 class="mb-3">Trading Mode</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="tradingMode" id="paperTradingMode" value="paper" checked>
+                                <label class="form-check-label" for="paperTradingMode">
+                                    Paper Trading (Simulated)
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="tradingMode" id="liveTradingMode" value="live">
+                                <label class="form-check-label" for="liveTradingMode">
+                                    Live Trading (Real Money)
+                                </label>
+                            </div>
+                            <div class="alert alert-warning" id="liveTradingWarning" style="display: none;">
+                                <i class="fa fa-triangle-exclamation me-2"></i>
+                                <strong>Caution:</strong> Live trading uses real money. Ensure proper risk management settings are in place.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">Order Defaults</h6>
+                            <div class="mb-3">
+                                <label for="defaultOrderType" class="form-label">Default Order Type</label>
+                                <select class="form-select" id="defaultOrderType">
+                                    <option value="market">Market</option>
+                                    <option value="limit">Limit</option>
+                                    <option value="stop">Stop</option>
+                                    <option value="stop_limit">Stop Limit</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="defaultTimeInForce" class="form-label">Default Time-in-Force</label>
+                                <select class="form-select" id="defaultTimeInForce">
+                                    <option value="day">Day</option>
+                                    <option value="gtc">Good Till Canceled</option>
+                                    <option value="opg">Market on Open</option>
+                                    <option value="cls">Market on Close</option>
+                                    <option value="ioc">Immediate or Cancel</option>
+                                    <option value="fok">Fill or Kill</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">Circuit Breaker</h6>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="enableCircuitBreaker" checked>
+                                <label class="form-check-label" for="enableCircuitBreaker">Enable Circuit Breaker Protection</label>
+                            </div>
+                            <div id="circuitBreakerSettings">
+                                <div class="mb-3">
+                                    <label for="maxConsecutiveLosses" class="form-label">Max Consecutive Losses</label>
+                                    <input type="number" class="form-control" id="maxConsecutiveLosses" min="1" value="3">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="maxDailyDrawdown" class="form-label">Max Daily Drawdown (%)</label>
+                                    <input type="number" class="form-control" id="maxDailyDrawdown" min="0.5" max="100" step="0.5" value="5">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-floppy-disk me-2"></i> Save Trading Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Market Data Status Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fa fa-heartbeat me-2 text-accent"></i>
+                        Market Data Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Status</th>
+                                    <th>Last Update</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Alpaca API</td>
+                                    <td><span class="badge bg-success">Connected</span></td>
+                                    <td>Just now</td>
+                                </tr>
+                                <tr>
+                                    <td>QuotestreamPY</td>
+                                    <td><span class="badge bg-warning">Connecting...</span></td>
+                                    <td>1 min ago</td>
+                                </tr>
+                                <tr>
+                                    <td>Market Status</td>
+                                    <td><span class="badge bg-success">Open</span></td>
+                                    <td>Just now</td>
+                                </tr>
+                                <tr>
+                                    <td>Watchlist</td>
+                                    <td><span class="badge bg-success">20 symbols</span></td>
+                                    <td>5 mins ago</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <button class="btn btn-info">
+                            <i class="fa fa-arrows-rotate me-2"></i> Refresh Status
+                        </button>
+                        <button class="btn btn-warning">
+                            <i class="fa fa-power-off me-2"></i> Reconnect Services
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Watchlist Manager Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fa fa-list-check me-2 text-accent"></i>
+                        Watchlist Manager
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="mb-3">
+                            <label for="watchlistSymbols" class="form-label">Watchlist Symbols (comma-separated)</label>
+                            <textarea class="form-control" id="watchlistSymbols" rows="3">SPY, QQQ, AAPL, MSFT, TSLA, NVDA, AMZN, META, GOOGL, AMD</textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button class="btn btn-primary" id="saveWatchlist">
+                                <i class="fa fa-floppy-disk me-2"></i> Save Watchlist
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="mb-3">Preset Watchlists</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-sm btn-outline-secondary">Tech Leaders</button>
+                            <button class="btn btn-sm btn-outline-secondary">Major ETFs</button>
+                            <button class="btn btn-sm btn-outline-secondary">Meme Stocks</button>
+                            <button class="btn btn-sm btn-outline-secondary">Energy Sector</button>
+                            <button class="btn btn-sm btn-outline-secondary">Financials</button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6 class="mb-3">Recently Added</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-secondary py-2 px-3">SOFI</span>
+                            <span class="badge bg-secondary py-2 px-3">PLTR</span>
+                            <span class="badge bg-secondary py-2 px-3">AMD</span>
+                            <span class="badge bg-secondary py-2 px-3">SNAP</span>
+                            <span class="badge bg-secondary py-2 px-3">SHOP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/market_settings.js"></script>
+{% endblock %}

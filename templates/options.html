@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}Options Analysis - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">Options Analysis</h1>
+    
+    <!-- Symbol Search and Info Card -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Symbol Lookup</h5>
+                </div>
+                <div class="card-body">
+                    <form id="symbol-form" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="symbol-input" class="form-control" placeholder="Enter symbol (e.g., AAPL)" value="{{ symbol }}">
+                            <button class="btn btn-primary" type="submit">Look Up</button>
+                        </div>
+                    </form>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 id="symbol-display">{{ symbol }}</h3>
+                            <h4 id="price-display">${{ price }}</h4>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" id="refresh-data">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Recent Signals</h5>
+                </div>
+                <div class="card-body">
+                    {% if signals %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Direction</th>
+                                        <th>Confidence</th>
+                                        <th>Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in signals %}
+                                    <tr>
+                                        <td>{{ signal.timestamp|format_timestamp }}</td>
+                                        <td class="{% if signal.direction == 'UP' %}text-success{% else %}text-danger{% endif %}">
+                                            {{ signal.direction }}
+                                        </td>
+                                        <td>
+                                            <div class="progress confidence-meter">
+                                                <div class="progress-bar bg-{{ 'success' if signal.direction == 'UP' else 'danger' }}" 
+                                                     role="progressbar" 
+                                                     style="width: {{ signal.confidence * 100 }}%" 
+                                                     aria-valuenow="{{ signal.confidence * 100 }}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                </div>
+                                            </div>
+                                            {{ "%.2f"|format(signal.confidence) }}
+                                        </td>
+                                        <td>${{ "%.2f"|format(signal.price_at_signal) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">No recent signals for {{ symbol }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Options Chain Nav Tabs -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="options-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="chain-tab" data-bs-toggle="tab" data-bs-target="#chain" type="button" role="tab" aria-controls="chain" aria-selected="true">
+                        Options Chain
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab" aria-controls="strategy" aria-selected="false">
+                        Strategy Builder
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="scanner-tab" data-bs-toggle="tab" data-bs-target="#scanner" type="button" role="tab" aria-controls="scanner" aria-selected="false">
+                        Unusual Activity
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content" id="options-tab-content">
+                <!-- Options Chain Tab -->
+                <div class="tab-pane fade show active" id="chain" role="tabpanel" aria-labelledby="chain-tab">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <input type="text" id="symbolInput" class="form-control" placeholder="Enter ticker symbol" value="{{ symbol }}">
+                                <button class="btn btn-primary" type="button" id="searchButton">Search</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="expirationSelector" class="form-select">
+                                <option value="">Loading expirations...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="optionTypeSelector" class="form-select">
+                                <option value="all">All Options</option>
+                                <option value="call">Calls Only</option>
+                                <option value="put">Puts Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex justify-content-end">
+                                <span class="badge bg-info fs-6 p-2" id="currentSymbol">{{ symbol }}</span>
+                                <span class="badge bg-secondary fs-6 p-2 ms-2" id="currentPrice">${{ price }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats Cards -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="card bg-dark text-white">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title">Total Options</h6>
+                                    <p class="card-text fs-4" id="totalOptionsCount">-</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title">Put/Call Ratio</h6>
+                                    <p class="card-text fs-4" id="putCallRatio">-</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title">Whale Activity 🐋</h6>
+                                    <p class="card-text fs-4" id="whaleActivityCount">-</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title">OG Strategy Match ✅</h6>
+                                    <p class="card-text fs-4" id="ogStrategyCount">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator -->
+                    <div id="optionsLoading" class="d-flex justify-content-center my-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-3">Loading options data...</span>
+                    </div>
+
+                    <!-- Error message -->
+                    <div id="optionsError" class="alert alert-danger d-none" role="alert">
+                        Error loading options data
+                    </div>
+                    
+                    <!-- Options Price Distribution Chart -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Options Volume by Strike</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="optionsDistributionChart" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Options Table -->
+                    <div class="table-responsive" id="optionsTable">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Strike</th>
+                                    <th>Type</th>
+                                    <th>Bid/Ask</th>
+                                    <th>Last</th>
+                                    <th>Volume</th>
+                                    <th>OI</th>
+                                    <th>IV%</th>
+                                    <th>Exp Date</th>
+                                    <th>Whale</th>
+                                    <th>OG Match</th>
+                                </tr>
+                            </thead>
+                            <tbody id="optionsTableBody">
+                                <!-- Options data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Strategy Builder Tab -->
+                <div class="tab-pane fade" id="strategy" role="tabpanel" aria-labelledby="strategy-tab">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h5 class="card-title">Strategy Builder</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="strategy-form">
+                                        <div class="mb-3">
+                                            <label for="strategy-type" class="form-label">Strategy Type</label>
+                                            <select class="form-select" id="strategy-type">
+                                                <option value="long_call">Long Call</option>
+                                                <option value="long_put">Long Put</option>
+                                                <option value="covered_call">Covered Call</option>
+                                                <option value="cash_secured_put">Cash-Secured Put</option>
+                                                <option value="vertical_spread">Vertical Spread</option>
+                                                <option value="iron_condor">Iron Condor</option>
+                                                <option value="straddle">Straddle</option>
+                                                <option value="strangle">Strangle</option>
+                                                <option value="butterfly">Butterfly</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="strategy-expiration" class="form-label">Expiration</label>
+                                            <select class="form-select" id="strategy-expiration">
+                                                <option value="{{ options_data.expiration_date }}">{{ options_data.expiration_date }}</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div id="strategy-legs-container">
+                                            <!-- Dynamically filled based on strategy -->
+                                            <div class="alert alert-info">
+                                                Select a strategy to configure legs
+                                            </div>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary">Analyze Strategy</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Strategy Analysis</h5>
+                                </div>
+                                <div class="card-body" id="strategy-analysis">
+                                    <div class="alert alert-info">
+                                        Select a strategy and options legs to see analysis
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Unusual Activity Tab -->
+                <div class="tab-pane fade" id="scanner" role="tabpanel" aria-labelledby="scanner-tab">
+                    <div class="alert alert-info">
+                        <h5>Unusual Options Activity Scanner</h5>
+                        <p>Coming soon! This feature will scan for unusual options activity across the market.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Chart.js for options visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+
+<!-- Options Chain Analytics Script -->
+<script src="/static/js/options-chain.js"></script>
+
+<script>
+// The code below will handle the Strategy Builder tab functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Symbol form submission
+    const symbolForm = document.getElementById('symbol-form');
+    if (symbolForm) {
+        symbolForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const symbol = document.getElementById('symbol-input').value.trim().toUpperCase();
+            if (symbol) {
+                window.location.href = `/options?symbol=${symbol}`;
+            }
+        });
+    }
+    
+    // Refresh data button
+    const refreshBtn = document.getElementById('refresh-data');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            const symbol = document.getElementById('symbol-input').value.trim().toUpperCase();
+            if (symbol) {
+                window.location.href = `/options?symbol=${symbol}`;
+            }
+        });
+    }
+    
+    // Strategy builder form
+    const strategyForm = document.getElementById('strategy-form');
+    if (strategyForm) {
+        strategyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // In a real app, this would submit the strategy for analysis
+            const strategyType = document.getElementById('strategy-type').value;
+            console.log(`Analyzing strategy: ${strategyType}`);
+            
+            // Mock strategy analysis
+            document.getElementById('strategy-analysis').innerHTML = `
+                <div class="alert alert-success">
+                    <h5>Strategy Analysis for ${strategyType}</h5>
+                    <p>This is placeholder analysis. In a real implementation, this would show detailed risk/reward profiles.</p>
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <strong>Max Profit:</strong> $500
+                            </div>
+                            <div class="mb-2">
+                                <strong>Max Loss:</strong> $500
+                            </div>
+                            <div class="mb-2">
+                                <strong>Break Even:</strong> $215.50
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <strong>Probability of Profit:</strong> 45%
+                            </div>
+                            <div class="mb-2">
+                                <strong>Risk/Reward:</strong> 1:1
+                            </div>
+                            <div class="mb-2">
+                                <strong>Strategy Type:</strong> ${strategyType}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Strategy type change handler
+    const strategyType = document.getElementById('strategy-type');
+    if (strategyType) {
+        strategyType.addEventListener('change', function() {
+            const strategy = this.value;
+            const container = document.getElementById('strategy-legs-container');
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            if (strategy === 'long_call' || strategy === 'long_put') {
+                // Single leg strategy
+                container.innerHTML = `
+                    <div class="mb-3 leg-container">
+                        <label class="form-label">Option Leg</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">${strategy === 'long_call' ? 'Call' : 'Put'}</span>
+                            <select class="form-select">
+                                <option value="">Select Strike</option>
+                                <option value="170">Strike 170.00 - $5.45</option>
+                                <option value="175">Strike 175.00 - $3.80</option>
+                                <option value="180">Strike 180.00 - $2.35</option>
+                                <option value="185">Strike 185.00 - $1.15</option>
+                                <option value="190">Strike 190.00 - $0.45</option>
+                            </select>
+                            <input type="number" class="form-control" placeholder="Quantity" value="1" min="1">
+                        </div>
+                    </div>
+                `;
+            } else if (strategy === 'vertical_spread') {
+                // Two leg strategy
+                container.innerHTML = `
+                    <div class="mb-3 leg-container">
+                        <label class="form-label">Leg 1 (Buy)</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">Call</span>
+                            <select class="form-select">
+                                <option value="">Select Strike</option>
+                                <option value="170">Strike 170.00 - $5.45</option>
+                                <option value="175">Strike 175.00 - $3.80</option>
+                                <option value="180">Strike 180.00 - $2.35</option>
+                                <option value="185">Strike 185.00 - $1.15</option>
+                                <option value="190">Strike 190.00 - $0.45</option>
+                            </select>
+                            <input type="number" class="form-control" placeholder="Quantity" value="1" min="1">
+                        </div>
+                    </div>
+                    <div class="mb-3 leg-container">
+                        <label class="form-label">Leg 2 (Sell)</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">Call</span>
+                            <select class="form-select">
+                                <option value="">Select Strike</option>
+                                <option value="170">Strike 170.00 - $5.45</option>
+                                <option value="175">Strike 175.00 - $3.80</option>
+                                <option value="180">Strike 180.00 - $2.35</option>
+                                <option value="185">Strike 185.00 - $1.15</option>
+                                <option value="190">Strike 190.00 - $0.45</option>
+                            </select>
+                            <input type="number" class="form-control" placeholder="Quantity" value="1" min="1">
+                        </div>
+                    </div>
+                `;
+            } else if (strategy === 'iron_condor') {
+                // Four leg strategy
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        Iron Condor configuration coming soon.
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        ${strategy} configuration coming soon.
+                    </div>
+                `;
+            }
+        });
+    }
+    
+    // Add custom styling for the options table
+    const style = document.createElement('style');
+    style.textContent = `
+        .whale-activity {
+            background-color: rgba(255, 193, 7, 0.2) !important;
+        }
+        .og-strategy-match {
+            background-color: rgba(25, 135, 84, 0.2) !important;
+        }
+        .itm {
+            font-weight: bold;
+            color: var(--bs-success);
+        }
+        .otm {
+            color: var(--bs-secondary);
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

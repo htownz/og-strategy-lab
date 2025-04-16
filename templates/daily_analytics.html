@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+
+{% block title %}Daily Analytics - OG Signal Bot{% endblock %}
+
+{% block extra_head %}
+<style>
+    .analytics-card {
+        margin-bottom: 1.5rem;
+    }
+    .analytics-card .card-body {
+        padding: 1rem;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 600;
+    }
+    .stat-label {
+        font-size: 0.9rem;
+        color: var(--bs-secondary);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 1.5rem;
+    }
+    .date-form {
+        margin-bottom: 1.5rem;
+    }
+    .progress {
+        height: 0.8rem;
+    }
+    .high-value {
+        color: var(--bs-success);
+    }
+    .medium-value {
+        color: var(--bs-warning);
+    }
+    .low-value {
+        color: var(--bs-danger);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">Daily Analytics</h1>
+        
+        <form method="GET" class="row g-3 date-form" id="dateRangeForm">
+            <div class="col-auto">
+                <label for="start_date" class="visually-hidden">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-auto">
+                <label for="end_date" class="visually-hidden">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-outline-secondary" id="thisMonthBtn">This Month</button>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-outline-secondary" id="lastMonthBtn">Last Month</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Top stats cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body">
+                    <div class="stat-value">{{ total_signals }}</div>
+                    <div class="stat-label">Total Signals</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body">
+                    <div class="stat-value">{{ total_trades }}</div>
+                    <div class="stat-label">Total Trades</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body">
+                    <div class="stat-value">{{ total_symbols }}</div>
+                    <div class="stat-label">Unique Symbols</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body">
+                    <div class="stat-value {% if execution_rate >= 70 %}high-value{% elif execution_rate >= 40 %}medium-value{% else %}low-value{% endif %}">{{ "%.1f"|format(execution_rate) }}%</div>
+                    <div class="stat-label">Execution Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Daily trades chart -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card analytics-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Daily Trade Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="dailyTradesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card analytics-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Trade Direction</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="tradeDirectionChart"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div>
+                            <h5>{{ buy_trades }}</h5>
+                            <p class="text-muted mb-0">Buy Trades</p>
+                        </div>
+                        <div>
+                            <h5>{{ sell_trades }}</h5>
+                            <p class="text-muted mb-0">Sell Trades</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signal direction and top symbols -->
+    <div class="row mb-4">
+        <div class="col-lg-4">
+            <div class="card analytics-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Signal Direction</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="signalDirectionChart"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div>
+                            <h5>{{ bullish_signals }}</h5>
+                            <p class="text-muted mb-0">Bullish Signals</p>
+                        </div>
+                        <div>
+                            <h5>{{ bearish_signals }}</h5>
+                            <p class="text-muted mb-0">Bearish Signals</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card analytics-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Top Traded Symbols</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_symbols %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Trade Count</th>
+                                    <th>% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for symbol, count in top_symbols %}
+                                <tr>
+                                    <td>{{ symbol }}</td>
+                                    <td>{{ count }}</td>
+                                    <td>
+                                        {% if total_trades > 0 %}
+                                        {{ "%.1f"|format((count / total_trades) * 100) }}%
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                style="width: {{ (count / total_trades) * 100 }}%" 
+                                                aria-valuenow="{{ (count / total_trades) * 100 }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100"></div>
+                                        </div>
+                                        {% else %}
+                                        0%
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                style="width: 0%" 
+                                                aria-valuenow="0" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100"></div>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        No trade data available for this period.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart configuration
+        const dailyTradesCtx = document.getElementById('dailyTradesChart').getContext('2d');
+        const tradeDirectionCtx = document.getElementById('tradeDirectionChart').getContext('2d');
+        const signalDirectionCtx = document.getElementById('signalDirectionChart').getContext('2d');
+        
+        // Date handling helper functions
+        function getFirstDayOfMonth() {
+            const date = new Date();
+            return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+        }
+        
+        function getLastDayOfLastMonth() {
+            const date = new Date();
+            return new Date(date.getFullYear(), date.getMonth(), 0).toISOString().split('T')[0];
+        }
+        
+        function getFirstDayOfLastMonth() {
+            const date = new Date();
+            return new Date(date.getFullYear(), date.getMonth() - 1, 1).toISOString().split('T')[0];
+        }
+        
+        // Date picker presets
+        document.getElementById('thisMonthBtn').addEventListener('click', function() {
+            document.getElementById('start_date').value = getFirstDayOfMonth();
+            document.getElementById('end_date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('dateRangeForm').submit();
+        });
+        
+        document.getElementById('lastMonthBtn').addEventListener('click', function() {
+            document.getElementById('start_date').value = getFirstDayOfLastMonth();
+            document.getElementById('end_date').value = getLastDayOfLastMonth();
+            document.getElementById('dateRangeForm').submit();
+        });
+        
+        // Daily trades chart
+        new Chart(dailyTradesCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ dates|tojson }},
+                datasets: [
+                    {
+                        label: 'Buy Trades',
+                        data: {{ buys|tojson }},
+                        backgroundColor: 'rgba(40, 167, 69, 0.6)',
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Sell Trades',
+                        data: {{ sells|tojson }},
+                        backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+        
+        // Trade direction pie chart
+        new Chart(tradeDirectionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Buy Trades', 'Sell Trades'],
+                datasets: [{
+                    data: [{{ buy_trades }}, {{ sell_trades }}],
+                    backgroundColor: [
+                        'rgba(40, 167, 69, 0.7)',
+                        'rgba(220, 53, 69, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(40, 167, 69, 1)',
+                        'rgba(220, 53, 69, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+        
+        // Signal direction pie chart
+        new Chart(signalDirectionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Bullish Signals', 'Bearish Signals'],
+                datasets: [{
+                    data: [{{ bullish_signals }}, {{ bearish_signals }}],
+                    backgroundColor: [
+                        'rgba(32, 201, 151, 0.7)',
+                        'rgba(247, 184, 75, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(32, 201, 151, 1)',
+                        'rgba(247, 184, 75, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

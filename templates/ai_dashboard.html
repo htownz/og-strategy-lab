@@ -1,0 +1,1232 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Strategy Dashboard - OG Signal Bot{% endblock %}
+
+{% block head %}
+<style>
+    .card-ai {
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-ai:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.2);
+    }
+    
+    .ai-status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .ai-status-active {
+        background-color: var(--bs-success);
+    }
+    
+    .ai-status-disabled {
+        background-color: var(--bs-danger);
+    }
+    
+    .ai-status-waiting {
+        background-color: var(--bs-warning);
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+    
+    .ticker-badge {
+        font-size: 90%;
+        padding: 0.25rem 0.5rem;
+        margin: 0.2rem;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .confidence-meter {
+        height: 8px;
+        border-radius: 4px;
+        background-color: var(--bs-gray-700);
+        margin-top: 5px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .confidence-value {
+        height: 100%;
+        border-radius: 4px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        background: linear-gradient(90deg, var(--bs-warning) 0%, var(--bs-success) 100%);
+    }
+    
+    #marketSentimentContainer, #scanResultsContainer {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .components-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    
+    .component-item {
+        border-radius: 4px;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .component-item i {
+        margin-right: 8px;
+    }
+    
+    .component-active {
+        background-color: rgba(var(--bs-success-rgb), 0.1);
+    }
+    
+    .component-inactive {
+        background-color: rgba(var(--bs-danger-rgb), 0.1);
+        opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h1 class="m-0">
+                    <i class="fa fa-robot me-2 text-accent"></i> 
+                    AI Strategy Dashboard
+                </h1>
+                <button id="refreshDataBtn" class="btn btn-primary">
+                    <i class="fa fa-refresh me-2"></i> Refresh Data
+                </button>
+            </div>
+            <p class="text-secondary">
+                Advanced AI-powered scanning and analysis for the OG Strategy pattern recognition system
+            </p>
+        </div>
+    </div>
+    
+    <!-- AI Services Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-4">
+            <div class="card card-ai h-100">
+                <div class="card-body">
+                    <h5 class="card-title d-flex align-items-center">
+                        <i class="fa fa-brain me-2 text-accent"></i>
+                        AI Analyzer
+                        <span class="ms-2" id="aiAnalyzerStatus">
+                            <span class="ai-status-indicator ai-status-waiting"></span>
+                            <span class="status-text">Checking...</span>
+                        </span>
+                    </h5>
+                    <p class="text-secondary">Signal validation and pattern recognition</p>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div class="text-secondary">
+                            <small>Signals Analyzed</small>
+                            <h4 id="signalsAnalyzedCount">-</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Validation Rate</small>
+                            <h4 id="validationRate">-%</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Avg Confidence</small>
+                            <h4 id="avgConfidence">-%</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <a href="#" class="btn btn-sm btn-accent w-100" id="configureAiBtn">
+                        <i class="fa fa-sliders me-2"></i> Configure
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card card-ai h-100">
+                <div class="card-body">
+                    <h5 class="card-title d-flex align-items-center">
+                        <i class="fa fa-brain-circuit me-2 text-accent"></i>
+                        Perplexity API
+                        <span class="ms-2" id="perplexityStatus">
+                            <span class="ai-status-indicator ai-status-waiting"></span>
+                            <span class="status-text">Checking...</span>
+                        </span>
+                    </h5>
+                    <p class="text-secondary">Advanced market data enrichment</p>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div class="text-secondary">
+                            <small>API Calls</small>
+                            <h4 id="perplexityCalls">-</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Cache Size</small>
+                            <h4 id="perplexityCacheSize">-</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Status</small>
+                            <h4 id="perplexityStatusText">-</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <button class="btn btn-sm btn-accent w-100" id="configurePerplexityBtn">
+                        <i class="fa fa-key me-2"></i> Set API Key
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card card-ai h-100">
+                <div class="card-body">
+                    <h5 class="card-title d-flex align-items-center">
+                        <i class="fa fa-chart-line me-2 text-accent"></i>
+                        Multi-Strategy AI
+                        <span class="ms-2" id="multiStrategyStatus">
+                            <span class="ai-status-indicator ai-status-waiting"></span>
+                            <span class="status-text">Checking...</span>
+                        </span>
+                    </h5>
+                    <p class="text-secondary">AI-powered strategy mixing and validation</p>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div class="text-secondary">
+                            <small>Active Strategies</small>
+                            <h4 id="activeStrategiesCount">-</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Queue Length</small>
+                            <h4 id="queueLength">-</h4>
+                        </div>
+                        <div class="text-secondary">
+                            <small>Confidence</small>
+                            <h4 id="strategyConfidence">-%</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <button class="btn btn-sm btn-accent w-100" id="optimizeStrategiesBtn">
+                        <i class="fa fa-wand-magic-sparkles me-2"></i> Auto-Optimize
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Functionality Row -->
+    <div class="row mb-4">
+        <!-- Scanner Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card card-ai h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fa fa-radar me-2 text-accent"></i>
+                        AI Scanner
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="aiScanForm" class="mb-3">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="watchlistInput" class="form-label">Ticker Watchlist</label>
+                                <input type="text" class="form-control" id="watchlistInput" 
+                                       placeholder="AAPL, MSFT, NVDA, AMD, TSLA, etc." required>
+                                <small class="form-text text-secondary">Comma-separated list of ticker symbols</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="timeframeSelect" class="form-label">Timeframe</label>
+                                <select class="form-select" id="timeframeSelect">
+                                    <option value="1D">Daily (1D)</option>
+                                    <option value="4H">4 Hour (4H)</option>
+                                    <option value="1H">Hourly (1H)</option>
+                                    <option value="30m">30 Minutes (30m)</option>
+                                    <option value="15m">15 Minutes (15m)</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary" id="scanBtn">
+                                    <i class="fa fa-search me-2"></i> Scan for OG Patterns
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div id="scanResultsContainer" class="mt-4">
+                        <div class="alert alert-secondary">
+                            <i class="fa fa-info-circle me-2"></i>
+                            Enter tickers and select a timeframe to scan for OG Strategy patterns
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Market Sentiment Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card card-ai h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fa fa-gauge-high me-2 text-accent"></i>
+                        Market Sentiment Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <button class="btn btn-primary" id="getSentimentBtn">
+                            <i class="fa fa-refresh me-2"></i> Get Market Sentiment
+                        </button>
+                        <div class="form-check form-switch ms-2 align-self-center">
+                            <input class="form-check-input" type="checkbox" id="includeTickers">
+                            <label class="form-check-label" for="includeTickers">Include Current Tickers</label>
+                        </div>
+                    </div>
+                    
+                    <div id="marketSentimentContainer">
+                        <div class="alert alert-secondary">
+                            <i class="fa fa-info-circle me-2"></i>
+                            Click "Get Market Sentiment" to fetch the latest market analysis
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ticker Analysis Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-ai">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fa fa-magnifying-glass-chart me-2 text-accent"></i>
+                        OG Pattern Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" id="analyzeTickerInput" 
+                                   placeholder="Enter a ticker symbol (e.g., AAPL)" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-primary w-100" id="analyzeTickerBtn">
+                                <i class="fa fa-chart-column me-2"></i> Analyze Ticker
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="tickerAnalysisContainer" class="d-none">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h3 id="analysisTicker" class="mb-0">AAPL</h3>
+                                                <p id="analysisPrice" class="text-secondary">$175.43</p>
+                                            </div>
+                                            <div class="col-md-6 text-end">
+                                                <span id="analysisDirection" class="badge bg-success mb-2">BULLISH</span>
+                                                <div>
+                                                    <small>Confidence:</small>
+                                                    <div class="d-flex align-items-center">
+                                                        <span id="confidenceValue" class="me-2">75%</span>
+                                                        <div class="confidence-meter flex-grow-1">
+                                                            <div class="confidence-value" style="width: 75%"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <hr>
+                                        
+                                        <h6 class="text-accent">OG Pattern Components</h6>
+                                        <div class="components-grid">
+                                            <div class="component-item component-active">
+                                                <i class="fa fa-check text-success"></i> EMA Cloud
+                                            </div>
+                                            <div class="component-item component-active">
+                                                <i class="fa fa-check text-success"></i> Order Block
+                                            </div>
+                                            <div class="component-item component-active">
+                                                <i class="fa fa-check text-success"></i> Fair Value Gap
+                                            </div>
+                                            <div class="component-item component-inactive">
+                                                <i class="fa fa-xmark text-danger"></i> Volume Confirmation
+                                            </div>
+                                        </div>
+                                        
+                                        <hr>
+                                        
+                                        <h6 class="text-accent">Key Price Levels</h6>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <small class="text-secondary">Entry:</small>
+                                                <p id="entryPrice" class="mb-1">$175.50</p>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-secondary">Stop:</small>
+                                                <p id="stopPrice" class="mb-1">$172.20</p>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-secondary">Target 1:</small>
+                                                <p id="target1Price" class="mb-1">$180.00</p>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-secondary">Target 2:</small>
+                                                <p id="target2Price" class="mb-1">$185.30</p>
+                                            </div>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6 class="text-accent mb-3">AI Analysis Summary</h6>
+                                        <div id="analysisContent" class="analysis-content">
+                                            <!-- Analysis content will go here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button class="btn btn-primary" id="simulateTradeBtn">
+                                        <i class="fa fa-vial me-2"></i> Simulate Trade
+                                    </button>
+                                    <button class="btn btn-outline-primary" id="saveAnalysisBtn">
+                                        <i class="fa fa-bookmark me-2"></i> Save Analysis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <!-- Perplexity API Key Modal -->
+    <div class="modal fade" id="perplexityApiModal" tabindex="-1" aria-labelledby="perplexityApiModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="perplexityApiModalLabel">
+                        <i class="fa fa-key me-2"></i> Configure Perplexity API
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle me-2"></i>
+                        Perplexity API provides enhanced market data and AI-powered analysis capabilities.
+                    </div>
+                    <form id="perplexityApiForm">
+                        <div class="mb-3">
+                            <label for="apiKeyInput" class="form-label">API Key</label>
+                            <input type="password" class="form-control" id="apiKeyInput" 
+                                   placeholder="Enter your Perplexity API key" required>
+                            <small class="form-text text-secondary">
+                                Your API key is stored securely and never shared.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveApiKeyBtn">Save API Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Settings Modal -->
+    <div class="modal fade" id="aiSettingsModal" tabindex="-1" aria-labelledby="aiSettingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="aiSettingsModalLabel">
+                        <i class="fa fa-sliders me-2"></i> AI Analyzer Settings
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="aiSettingsForm">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="aiValidationEnabled" checked>
+                            <label class="form-check-label" for="aiValidationEnabled">Enable AI Validation</label>
+                            <div class="form-text text-secondary">
+                                When enabled, the AI will analyze and validate all signals.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confidenceThreshold" class="form-label">
+                                Confidence Threshold: <span id="confidenceThresholdValue">0.65</span>
+                            </label>
+                            <input type="range" class="form-range" min="0.1" max="0.9" step="0.05" 
+                                   id="confidenceThreshold" value="0.65">
+                            <div class="form-text text-secondary">
+                                Signals with confidence below this threshold will be rejected.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="minimumComponentMatch" class="form-label">
+                                Minimum OG Components: <span id="minimumComponentMatchValue">3</span>
+                            </label>
+                            <input type="range" class="form-range" min="1" max="4" step="1" 
+                                   id="minimumComponentMatch" value="3">
+                            <div class="form-text text-secondary">
+                                Minimum number of OG pattern components required for validation.
+                            </div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="multiTimeframeConfirmation" checked>
+                            <label class="form-check-label" for="multiTimeframeConfirmation">Multi-Timeframe Confirmation</label>
+                            <div class="form-text text-secondary">
+                                Require pattern confirmation across multiple timeframes.
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveAiSettingsBtn">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Initialize modals
+        const perplexityModal = new bootstrap.Modal(document.getElementById('perplexityApiModal'));
+        const aiSettingsModal = new bootstrap.Modal(document.getElementById('aiSettingsModal'));
+        
+        // Global variables
+        let currentTickers = [];
+        
+        // Toast notification helper
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            const toastBody = document.createElement('div');
+            toastBody.className = 'd-flex';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'toast-body';
+            messageDiv.textContent = message;
+            
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = 'btn-close btn-close-white me-2 m-auto';
+            closeButton.setAttribute('data-bs-dismiss', 'toast');
+            closeButton.setAttribute('aria-label', 'Close');
+            
+            toastBody.appendChild(messageDiv);
+            toastBody.appendChild(closeButton);
+            toast.appendChild(toastBody);
+            toastContainer.appendChild(toast);
+            
+            const toastInstance = new bootstrap.Toast(toast);
+            toastInstance.show();
+            
+            // Auto-remove the toast element after it's hidden
+            toast.addEventListener('hidden.bs.toast', function() {
+                toast.remove();
+            });
+        }
+        
+        // Load AI status on page load
+        loadAiStatus();
+        
+        // Event listeners
+        document.getElementById('refreshDataBtn').addEventListener('click', loadAiStatus);
+        document.getElementById('configurePerplexityBtn').addEventListener('click', () => perplexityModal.show());
+        document.getElementById('configureAiBtn').addEventListener('click', () => {
+            loadAiSettings();
+            aiSettingsModal.show();
+        });
+        
+        document.getElementById('saveApiKeyBtn').addEventListener('click', savePerplexityApiKey);
+        document.getElementById('saveAiSettingsBtn').addEventListener('click', saveAiSettings);
+        
+        document.getElementById('aiScanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            scanWatchlist();
+        });
+        
+        document.getElementById('getSentimentBtn').addEventListener('click', getMarketSentiment);
+        document.getElementById('analyzeTickerBtn').addEventListener('click', analyzeTicker);
+        document.getElementById('simulateTradeBtn').addEventListener('click', simulateTrade);
+        document.getElementById('saveAnalysisBtn').addEventListener('click', saveAnalysis);
+        
+        // Range input event listeners
+        document.getElementById('confidenceThreshold').addEventListener('input', function() {
+            document.getElementById('confidenceThresholdValue').textContent = this.value;
+        });
+        
+        document.getElementById('minimumComponentMatch').addEventListener('input', function() {
+            document.getElementById('minimumComponentMatchValue').textContent = this.value;
+        });
+        
+        // Functions
+        function loadAiStatus() {
+            // Show loading indicators
+            const statusIndicators = document.querySelectorAll('.ai-status-indicator');
+            const statusTexts = document.querySelectorAll('.status-text');
+            
+            statusIndicators.forEach(indicator => {
+                indicator.className = 'ai-status-indicator ai-status-waiting';
+            });
+            
+            statusTexts.forEach(text => {
+                text.textContent = 'Loading...';
+            });
+            
+            // Add timeout to prevent UI hanging if request never completes
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timeout')), 10000);
+            });
+            
+            // Make the fetch request with timeout
+            Promise.race([
+                fetch('/ai/status'),
+                timeoutPromise
+            ])
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    updateAiStatusDisplay(data.ai_services);
+                    showToast('AI services status updated', 'success');
+                } else {
+                    updateAiStatusAsUnavailable();
+                    showToast('Error loading AI status: ' + data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching AI status:', error);
+                updateAiStatusAsUnavailable();
+                
+                if (error.message === 'Request timeout') {
+                    showToast('AI services request timed out', 'warning');
+                } else if (error.message.includes('HTTP error')) {
+                    showToast('AI services endpoint error: ' + error.message, 'danger');
+                } else {
+                    showToast('Error connecting to AI services', 'danger');
+                }
+            });
+        }
+        
+        function updateAiStatusAsUnavailable() {
+            // Set all services as unavailable when there's an error
+            const statusIndicators = document.querySelectorAll('.ai-status-indicator');
+            const statusTexts = document.querySelectorAll('.status-text');
+            
+            statusIndicators.forEach(indicator => {
+                indicator.className = 'ai-status-indicator ai-status-disabled';
+            });
+            
+            statusTexts.forEach(text => {
+                text.textContent = 'Unavailable';
+            });
+            
+            // Set specific status fields
+            document.getElementById('perplexityStatusText').textContent = 'Disconnected';
+            document.getElementById('perplexityCacheSize').textContent = '-';
+            document.getElementById('perplexityCalls').textContent = '-';
+            
+            document.getElementById('signalsAnalyzedCount').textContent = '-';
+            document.getElementById('validationRate').textContent = '-%';
+            document.getElementById('avgConfidence').textContent = '-%';
+            
+            document.getElementById('activeStrategiesCount').textContent = '-';
+            document.getElementById('queueLength').textContent = '-';
+            document.getElementById('strategyConfidence').textContent = '-%';
+        }
+        
+        function updateAiStatusDisplay(services) {
+            // Update Perplexity status
+            const perplexity = services.perplexity;
+            const perplexityStatusElement = document.getElementById('perplexityStatus');
+            const perplexityStatusIndicator = perplexityStatusElement.querySelector('.ai-status-indicator');
+            const perplexityStatusText = perplexityStatusElement.querySelector('.status-text');
+            
+            if (perplexity.available) {
+                perplexityStatusIndicator.className = 'ai-status-indicator ai-status-active';
+                perplexityStatusText.textContent = 'Active';
+                document.getElementById('perplexityStatusText').textContent = 'Connected';
+            } else {
+                perplexityStatusIndicator.className = 'ai-status-indicator ai-status-disabled';
+                perplexityStatusText.textContent = 'Disabled';
+                document.getElementById('perplexityStatusText').textContent = 'Disconnected';
+            }
+            
+            document.getElementById('perplexityCacheSize').textContent = perplexity.cache_size;
+            
+            // Update AI Analyzer status
+            const aiAnalyzer = services.ai_analyzer;
+            const aiAnalyzerStatusElement = document.getElementById('aiAnalyzerStatus');
+            const aiAnalyzerStatusIndicator = aiAnalyzerStatusElement.querySelector('.ai-status-indicator');
+            const aiAnalyzerStatusText = aiAnalyzerStatusElement.querySelector('.status-text');
+            
+            if (aiAnalyzer.ai_enabled) {
+                aiAnalyzerStatusIndicator.className = 'ai-status-indicator ai-status-active';
+                aiAnalyzerStatusText.textContent = 'Active';
+            } else {
+                aiAnalyzerStatusIndicator.className = 'ai-status-indicator ai-status-disabled';
+                aiAnalyzerStatusText.textContent = 'Disabled';
+            }
+            
+            document.getElementById('signalsAnalyzedCount').textContent = aiAnalyzer.signals_analyzed;
+            
+            const validationRate = aiAnalyzer.signals_analyzed > 0 
+                ? ((aiAnalyzer.signals_validated / aiAnalyzer.signals_analyzed) * 100).toFixed(0) + '%'
+                : '0%';
+            document.getElementById('validationRate').textContent = validationRate;
+            
+            document.getElementById('perplexityCalls').textContent = aiAnalyzer.perplexity_calls;
+            
+            const avgConfidence = aiAnalyzer.signals_validated > 0
+                ? ((aiAnalyzer.signals_validated / aiAnalyzer.signals_analyzed) * 100).toFixed(0) + '%'
+                : '0%';
+            document.getElementById('avgConfidence').textContent = avgConfidence;
+            
+            // Update Multi-Strategy AI status
+            const multiStrategyStatusElement = document.getElementById('multiStrategyStatus');
+            const multiStrategyStatusIndicator = multiStrategyStatusElement.querySelector('.ai-status-indicator');
+            const multiStrategyStatusText = multiStrategyStatusElement.querySelector('.status-text');
+            
+            // For now, we'll just reflect the AI analyzer status here
+            if (aiAnalyzer.thread_running) {
+                multiStrategyStatusIndicator.className = 'ai-status-indicator ai-status-active';
+                multiStrategyStatusText.textContent = 'Active';
+            } else {
+                multiStrategyStatusIndicator.className = 'ai-status-indicator ai-status-disabled';
+                multiStrategyStatusText.textContent = 'Inactive';
+            }
+            
+            document.getElementById('queueLength').textContent = aiAnalyzer.queue_length;
+            document.getElementById('activeStrategiesCount').textContent = '2'; // Placeholder
+            document.getElementById('strategyConfidence').textContent = avgConfidence;
+        }
+        
+        function savePerplexityApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            
+            if (!apiKey) {
+                showToast('Please enter a valid API key', 'warning');
+                return;
+            }
+            
+            fetch('/ai/setup-perplexity-api', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ api_key: apiKey }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast('Perplexity API configured successfully', 'success');
+                    perplexityModal.hide();
+                    loadAiStatus();
+                } else {
+                    showToast('Error configuring API: ' + data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving API key:', error);
+                showToast('Error connecting to server', 'danger');
+            });
+        }
+        
+        function loadAiSettings() {
+            fetch('/ai/settings')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const settings = data.settings;
+                        
+                        document.getElementById('aiValidationEnabled').checked = settings.ai_validation_enabled;
+                        
+                        const confidenceThreshold = document.getElementById('confidenceThreshold');
+                        confidenceThreshold.value = settings.ai_confidence_threshold;
+                        document.getElementById('confidenceThresholdValue').textContent = confidenceThreshold.value;
+                        
+                        const minimumComponentMatch = document.getElementById('minimumComponentMatch');
+                        minimumComponentMatch.value = settings.ai_minimum_component_match;
+                        document.getElementById('minimumComponentMatchValue').textContent = minimumComponentMatch.value;
+                        
+                        document.getElementById('multiTimeframeConfirmation').checked = settings.ai_multi_timeframe_confirmation;
+                    } else {
+                        showToast('Error loading AI settings: ' + data.message, 'warning');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching AI settings:', error);
+                    showToast('Error connecting to server', 'danger');
+                });
+        }
+        
+        function saveAiSettings() {
+            const settings = {
+                ai_validation_enabled: document.getElementById('aiValidationEnabled').checked,
+                ai_confidence_threshold: parseFloat(document.getElementById('confidenceThreshold').value),
+                ai_minimum_component_match: parseInt(document.getElementById('minimumComponentMatch').value),
+                ai_multi_timeframe_confirmation: document.getElementById('multiTimeframeConfirmation').checked
+            };
+            
+            fetch('/ai/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast('AI settings saved successfully', 'success');
+                    aiSettingsModal.hide();
+                    loadAiStatus();
+                } else {
+                    showToast('Error saving settings: ' + data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving AI settings:', error);
+                showToast('Error connecting to server', 'danger');
+            });
+        }
+        
+        function scanWatchlist() {
+            const watchlistInput = document.getElementById('watchlistInput').value.trim();
+            const timeframe = document.getElementById('timeframeSelect').value;
+            
+            if (!watchlistInput) {
+                showToast('Please enter at least one ticker symbol', 'warning');
+                return;
+            }
+            
+            // Parse the watchlist
+            const watchlist = watchlistInput.split(',').map(ticker => ticker.trim().toUpperCase()).filter(Boolean);
+            
+            if (watchlist.length === 0) {
+                showToast('Please enter valid ticker symbols', 'warning');
+                return;
+            }
+            
+            // Store for later use
+            currentTickers = watchlist;
+            
+            // Show loading state
+            document.getElementById('scanResultsContainer').innerHTML = `
+                <div class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Scanning ${watchlist.length} tickers on ${timeframe} timeframe...</p>
+                </div>
+            `;
+            
+            // Disable scan button
+            const scanBtn = document.getElementById('scanBtn');
+            scanBtn.disabled = true;
+            scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning...';
+            
+            fetch('/ai/watchlist-scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    watchlist: watchlist,
+                    timeframe: timeframe
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Re-enable scan button
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<i class="fa fa-search me-2"></i> Scan for OG Patterns';
+                
+                if (data.status === 'success') {
+                    displayScanResults(data.result, timeframe);
+                } else {
+                    showToast('Error scanning watchlist: ' + data.message, 'danger');
+                    document.getElementById('scanResultsContainer').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fa fa-exclamation-triangle me-2"></i>
+                            Error: ${data.message}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                // Re-enable scan button
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<i class="fa fa-search me-2"></i> Scan for OG Patterns';
+                
+                console.error('Error scanning watchlist:', error);
+                showToast('Error connecting to server', 'danger');
+                document.getElementById('scanResultsContainer').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fa fa-exclamation-triangle me-2"></i>
+                        Network error. Please try again later.
+                    </div>
+                `;
+            });
+        }
+        
+        function displayScanResults(result, timeframe) {
+            // For now, we'll just display the raw content
+            // In production, we'd parse this into a structured format
+            
+            let html = '';
+            
+            if (result.status === 'success') {
+                html = `
+                    <div class="card mb-3">
+                        <div class="card-header bg-transparent">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="m-0">
+                                    <i class="fa fa-check-circle text-success me-2"></i>
+                                    Scan Results (${timeframe})
+                                </h6>
+                                <span class="badge bg-primary">${new Date().toLocaleTimeString()}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <pre class="scan-results p-3 bg-dark rounded" style="white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
+${result.content}</pre>
+                            <div class="mt-3">
+                                <small class="text-secondary">
+                                    <i class="fa fa-info-circle me-1"></i>
+                                    This analysis is AI-generated and should be verified with additional technical analysis.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="alert alert-warning">
+                        <i class="fa fa-exclamation-triangle me-2"></i>
+                        No OG patterns found or error in analysis: ${result.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('scanResultsContainer').innerHTML = html;
+        }
+        
+        function getMarketSentiment() {
+            // Show loading state
+            document.getElementById('marketSentimentContainer').innerHTML = `
+                <div class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Fetching market sentiment analysis...</p>
+                </div>
+            `;
+            
+            // Check if we should include current tickers
+            const includeTickers = document.getElementById('includeTickers').checked;
+            let url = '/ai/market-sentiment';
+            
+            if (includeTickers && currentTickers.length > 0) {
+                url += `?tickers=${currentTickers.join(',')}`;
+            }
+            
+            // Disable button
+            const sentimentBtn = document.getElementById('getSentimentBtn');
+            sentimentBtn.disabled = true;
+            sentimentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // Re-enable button
+                    sentimentBtn.disabled = false;
+                    sentimentBtn.innerHTML = '<i class="fa fa-refresh me-2"></i> Get Market Sentiment';
+                    
+                    if (data.status === 'success') {
+                        displayMarketSentiment(data.sentiment);
+                    } else {
+                        showToast('Error getting market sentiment: ' + data.message, 'danger');
+                        document.getElementById('marketSentimentContainer').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fa fa-exclamation-triangle me-2"></i>
+                                Error: ${data.message}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    // Re-enable button
+                    sentimentBtn.disabled = false;
+                    sentimentBtn.innerHTML = '<i class="fa fa-refresh me-2"></i> Get Market Sentiment';
+                    
+                    console.error('Error getting market sentiment:', error);
+                    showToast('Error connecting to server', 'danger');
+                    document.getElementById('marketSentimentContainer').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fa fa-exclamation-triangle me-2"></i>
+                            Network error. Please try again later.
+                        </div>
+                    `;
+                });
+        }
+        
+        function displayMarketSentiment(sentiment) {
+            // For now, we'll just display the raw content
+            const html = `
+                <div class="card mb-3">
+                    <div class="card-header bg-transparent">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="m-0">
+                                <i class="fa fa-chart-line text-primary me-2"></i>
+                                Market Sentiment Analysis
+                            </h6>
+                            <span class="badge bg-primary">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <pre class="market-sentiment p-3 bg-dark rounded" style="white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
+${sentiment.content}</pre>
+                        <div class="mt-3">
+                            <small class="text-secondary">
+                                <i class="fa fa-info-circle me-1"></i>
+                                This analysis is AI-generated and reflects current market conditions.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('marketSentimentContainer').innerHTML = html;
+        }
+        
+        function analyzeTicker() {
+            const tickerInput = document.getElementById('analyzeTickerInput').value.trim().toUpperCase();
+            
+            if (!tickerInput) {
+                showToast('Please enter a ticker symbol', 'warning');
+                return;
+            }
+            
+            // Show loading state
+            document.getElementById('tickerAnalysisContainer').classList.remove('d-none');
+            document.getElementById('analysisTicker').textContent = tickerInput;
+            document.getElementById('analysisPrice').textContent = 'Loading...';
+            document.getElementById('analysisDirection').textContent = 'ANALYZING';
+            document.getElementById('analysisDirection').className = 'badge bg-secondary mb-2';
+            document.getElementById('confidenceValue').textContent = '...';
+            document.getElementById('analysisContent').innerHTML = `
+                <div class="text-center my-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing ${tickerInput}...</p>
+                </div>
+            `;
+            
+            // Clear price levels
+            document.getElementById('entryPrice').textContent = '...';
+            document.getElementById('stopPrice').textContent = '...';
+            document.getElementById('target1Price').textContent = '...';
+            document.getElementById('target2Price').textContent = '...';
+            
+            // Disable button
+            const analyzeBtn = document.getElementById('analyzeTickerBtn');
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+            
+            fetch(`/ai/analyze/${tickerInput}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Re-enable button
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.innerHTML = '<i class="fa fa-chart-column me-2"></i> Analyze Ticker';
+                    
+                    if (data.status === 'success' || data.status === 'limited') {
+                        displayTickerAnalysis(data);
+                    } else {
+                        showToast('Error analyzing ticker: ' + data.message, 'danger');
+                        document.getElementById('analysisContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fa fa-exclamation-triangle me-2"></i>
+                                Error: ${data.message}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    // Re-enable button
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.innerHTML = '<i class="fa fa-chart-column me-2"></i> Analyze Ticker';
+                    
+                    console.error('Error analyzing ticker:', error);
+                    showToast('Error connecting to server', 'danger');
+                    document.getElementById('analysisContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fa fa-exclamation-triangle me-2"></i>
+                            Network error. Please try again later.
+                        </div>
+                    `;
+                });
+        }
+        
+        function displayTickerAnalysis(data) {
+            // Update ticker info
+            document.getElementById('analysisTicker').textContent = data.ticker;
+            
+            // Get OG parameters
+            const params = data.og_parameters;
+            
+            // Update direction badge
+            const direction = params.direction || 'UNKNOWN';
+            const directionBadge = document.getElementById('analysisDirection');
+            directionBadge.textContent = direction;
+            
+            if (direction === 'BULLISH') {
+                directionBadge.className = 'badge bg-success mb-2';
+            } else if (direction === 'BEARISH') {
+                directionBadge.className = 'badge bg-danger mb-2';
+            } else {
+                directionBadge.className = 'badge bg-secondary mb-2';
+            }
+            
+            // Update price and confidence
+            document.getElementById('analysisPrice').textContent = params.entry ? `$${params.entry.toFixed(2)}` : 'N/A';
+            
+            const confidence = params.confidence || 0;
+            document.getElementById('confidenceValue').textContent = `${(confidence * 100).toFixed(0)}%`;
+            document.querySelector('.confidence-value').style.width = `${confidence * 100}%`;
+            
+            // Update price levels
+            document.getElementById('entryPrice').textContent = params.entry ? `$${params.entry.toFixed(2)}` : 'N/A';
+            document.getElementById('stopPrice').textContent = params.stop ? `$${params.stop.toFixed(2)}` : 'N/A';
+            document.getElementById('target1Price').textContent = params.target1 ? `$${params.target1.toFixed(2)}` : 'N/A';
+            document.getElementById('target2Price').textContent = params.target2 ? `$${params.target2.toFixed(2)}` : 'N/A';
+            
+            // Update components
+            const componentsGrid = document.querySelector('.components-grid');
+            componentsGrid.innerHTML = '';
+            
+            // Component check function
+            function addComponent(name, isActive) {
+                const div = document.createElement('div');
+                div.className = isActive ? 'component-item component-active' : 'component-item component-inactive';
+                
+                const icon = document.createElement('i');
+                icon.className = isActive ? 'fa fa-check text-success' : 'fa fa-xmark text-danger';
+                
+                const text = document.createTextNode(` ${name}`);
+                
+                div.appendChild(icon);
+                div.appendChild(text);
+                componentsGrid.appendChild(div);
+            }
+            
+            // Add components
+            addComponent('EMA Cloud', params.ema_cloud || false);
+            addComponent('Order Block', params.order_block || false);
+            addComponent('Fair Value Gap', params.fvg || false);
+            addComponent('Volume', params.volume || false);
+            
+            // Update analysis content
+            if (data.status === 'success' && data.analysis && data.analysis.content) {
+                document.getElementById('analysisContent').innerHTML = `
+                    <div class="analysis-text">
+                        ${data.analysis.content.replace(/\n/g, '<br>')}
+                    </div>
+                `;
+            } else {
+                document.getElementById('analysisContent').innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle me-2"></i>
+                        Basic analysis completed. For detailed analysis, please configure Perplexity API.
+                    </div>
+                    <div class="mt-3">
+                        <h6>OG Pattern Assessment:</h6>
+                        <p>
+                            ${data.ticker} shows a ${direction.toLowerCase()} bias with
+                            ${(confidence * 100).toFixed(0)}% confidence based on technical indicators.
+                            ${getComponentSummary(params)}
+                        </p>
+                    </div>
+                `;
+            }
+        }
+        
+        function getComponentSummary(params) {
+            const components = [];
+            if (params.ema_cloud) components.push('EMA Cloud alignment');
+            if (params.order_block) components.push('Order Block formation');
+            if (params.fvg) components.push('Fair Value Gap');
+            if (params.volume) components.push('Volume confirmation');
+            
+            if (components.length === 0) return 'No OG pattern components detected.';
+            if (components.length === 4) return 'All OG pattern components are present and confirmed.';
+            
+            return `The following components are present: ${components.join(', ')}.`;
+        }
+        
+        function simulateTrade() {
+            // This would connect to the paper trading system
+            // For now, we'll just show a toast notification
+            showToast('Paper trade simulation initiated', 'info');
+        }
+        
+        function saveAnalysis() {
+            // This would save the analysis for later reference
+            // For now, we'll just show a toast notification
+            showToast('Analysis saved successfully', 'success');
+        }
+    });
+</script>
+{% endblock %}

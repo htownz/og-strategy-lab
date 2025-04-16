@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | New Coaching Session{% endblock %}
+
+{% block head %}
+<style>
+    .topic-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+    }
+    
+    .topic-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .topic-card.selected {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 1px var(--accent-color);
+    }
+    
+    .topic-card .card-body {
+        padding: 20px;
+    }
+    
+    .topic-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+    }
+    
+    .topic-icon i {
+        font-size: 24px;
+        color: var(--accent-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">Start a Coaching Session</h2>
+            </div>
+            <p class="text-secondary">
+                Choose a topic for your coaching session to get personalized guidance for your trading strategy.
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('strategy_coach.new_coaching_session') }}">
+        <input type="hidden" name="topic" id="selectedTopic" value="strategy_review">
+        
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="topic-card card selected" data-topic="strategy_review">
+                    <div class="card-body text-center">
+                        <div class="topic-icon">
+                            <i class="fa fa-diagram-project"></i>
+                        </div>
+                        <h5 class="mb-2">Strategy Review</h5>
+                        <p class="text-secondary small mb-0">
+                            Evaluate and improve your current trading strategy with expert feedback
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="topic-card card" data-topic="trade_analysis">
+                    <div class="card-body text-center">
+                        <div class="topic-icon">
+                            <i class="fa fa-chart-column"></i>
+                        </div>
+                        <h5 class="mb-2">Trade Analysis</h5>
+                        <p class="text-secondary small mb-0">
+                            Analyze recent trades to identify patterns and improvement areas
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="topic-card card" data-topic="skill_development">
+                    <div class="card-body text-center">
+                        <div class="topic-icon">
+                            <i class="fa fa-graduation-cap"></i>
+                        </div>
+                        <h5 class="mb-2">Skill Development</h5>
+                        <p class="text-secondary small mb-0">
+                            Focus on developing specific trading skills and techniques
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="topic-card card" data-topic="market_understanding">
+                    <div class="card-body text-center">
+                        <div class="topic-icon">
+                            <i class="fa fa-globe"></i>
+                        </div>
+                        <h5 class="mb-2">Market Understanding</h5>
+                        <p class="text-secondary small mb-0">
+                            Improve your understanding of market conditions and contexts
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Session Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <label for="sessionTitle" class="form-label">Session Title (optional)</label>
+                            <input type="text" class="form-control" id="sessionTitle" name="title" placeholder="e.g., OG Strategy Performance Review">
+                            <div class="form-text text-secondary">
+                                Leave blank for an automatically generated title
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sessionNotes" class="form-label">Initial Questions or Notes (optional)</label>
+                            <textarea class="form-control" id="sessionNotes" name="notes" rows="3" placeholder="What specific questions do you have for your coach?"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fa fa-times me-2"></i> Cancel
+            </a>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fa fa-play me-2"></i> Start Coaching Session
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const topicCards = document.querySelectorAll('.topic-card');
+        const selectedTopicInput = document.getElementById('selectedTopic');
+        
+        topicCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selected class from all cards
+                topicCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked card
+                this.classList.add('selected');
+                
+                // Update hidden input
+                selectedTopicInput.value = this.dataset.topic;
+            });
+        });
+    });
+</script>
+{% endblock %}

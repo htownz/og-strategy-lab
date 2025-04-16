@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item active">Strategy Details</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Strategy: {{ strategy.name }}</h1>
+        <div class="btn-group">
+            <a href="{{ url_for('backtest.run_backtest') }}?strategy_id={{ strategy.id }}" class="btn btn-primary">
+                <i class="bi bi-play-fill me-1"></i> Run Backtest
+            </a>
+            <a href="{{ url_for('backtest.optimize_strategy', strategy_id=strategy.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-gear-fill me-1"></i> Optimize
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Strategy Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Name</dt>
+                                <dd class="col-sm-8">{{ strategy.name }}</dd>
+                                
+                                <dt class="col-sm-4">Type</dt>
+                                <dd class="col-sm-8">
+                                    {{ strategy.strategy_type|replace('_', ' ')|title }} 
+                                    ({{ strategy.type|capitalize }})
+                                </dd>
+                                
+                                <dt class="col-sm-4">Status</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge {% if strategy.active %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {{ 'Active' if strategy.active else 'Inactive' }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Created</dt>
+                                <dd class="col-sm-8">{{ strategy.created_at.strftime('%Y-%m-%d') }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Default Timeframe</dt>
+                                <dd class="col-sm-8">{{ strategy.timeframe }}</dd>
+                                
+                                <dt class="col-sm-4">Min Confidence</dt>
+                                <dd class="col-sm-8">{{ strategy.min_confidence_score }}%</dd>
+                                
+                                <dt class="col-sm-4">Trade Direction</dt>
+                                <dd class="col-sm-8">{{ strategy.trade_direction|capitalize }}</dd>
+                                
+                                <dt class="col-sm-4">Risk Profile</dt>
+                                <dd class="col-sm-8">{{ strategy.risk_profile.name if strategy.risk_profile else 'None' }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    {% if strategy.description %}
+                        <div class="mt-3">
+                            <h6>Description</h6>
+                            <p class="mb-0">{{ strategy.description }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Strategy Parameters</h5>
+                </div>
+                <div class="card-body">
+                    {% if strategy.config %}
+                        <dl class="row mb-0">
+                            {% for key, value in strategy.config.items() %}
+                                <dt class="col-sm-7">{{ key|replace('_', ' ')|title }}</dt>
+                                <dd class="col-sm-5">
+                                    {% if value is iterable and value is not string and value is not mapping %}
+                                        {{ value|join(', ') }}
+                                    {% elif value is boolean %}
+                                        {{ 'Yes' if value else 'No' }}
+                                    {% else %}
+                                        {{ value }}
+                                    {% endif %}
+                                </dd>
+                            {% endfor %}
+                        </dl>
+                    {% else %}
+                        <p class="text-muted mb-0">No parameters configured.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backtest History -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Backtest History</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if backtest_history %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Timeframe</th>
+                                <th>Symbols</th>
+                                <th>Trades</th>
+                                <th>Win Rate</th>
+                                <th>Profit Factor</th>
+                                <th>Max Drawdown</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for backtest in backtest_history %}
+                                <tr>
+                                    <td>{{ backtest.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ backtest.timeframe or 'N/A' }}</td>
+                                    <td>
+                                        {% if backtest.symbols %}
+                                            {% if backtest.symbols|length > 20 %}
+                                                {{ backtest.symbols[:20] + '...' }}
+                                            {% else %}
+                                                {{ backtest.symbols }}
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ backtest.total_trades }}</td>
+                                    <td>{{ '%.1f%%'|format(backtest.win_rate * 100) }}</td>
+                                    <td>{{ '%.2f'|format(backtest.profit_factor) }}</td>
+                                    <td>{{ '%.1f%%'|format(backtest.max_drawdown * 100) }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('backtest.results', result_id=backtest.id) }}" class="btn btn-outline-info">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('backtest.delete_result', result_id=backtest.id) }}" 
+                                                  onsubmit="return confirm('Are you sure you want to delete this backtest result?')">
+                                                <button type="submit" class="btn btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center">
+                    <p class="text-muted mb-0">No backtest history available.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Optimization History -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Optimization History</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if optimization_history %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Target Metric</th>
+                                <th>Timeframe</th>
+                                <th>Best Parameters</th>
+                                <th>Best Performance</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for optimization in optimization_history %}
+                                <tr>
+                                    <td>{{ optimization.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ optimization.optimization_target|replace('_', ' ')|title }}</td>
+                                    <td>{{ optimization.timeframe or 'N/A' }}</td>
+                                    <td>
+                                        {% if optimization.best_parameters %}
+                                            {% for key, value in optimization.best_parameters.items() %}
+                                                <div><strong>{{ key|replace('_', ' ')|title }}:</strong> 
+                                                    {% if value is iterable and value is not string %}
+                                                        {{ value|join(', ') }}
+                                                    {% else %}
+                                                        {{ value }}
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if optimization.to_dict().performance %}
+                                            {% set perf = optimization.to_dict().performance %}
+                                            Win Rate: {{ '%.1f%%'|format(perf.win_rate * 100) }}<br>
+                                            Profit Factor: {{ '%.2f'|format(perf.profit_factor) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('backtest.optimization_results', result_id=optimization.id) }}" class="btn btn-outline-info">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('backtest.apply_optimization', result_id=optimization.id) }}">
+                                                <button type="submit" class="btn btn-outline-success" title="Apply these parameters">
+                                                    <i class="bi bi-check-circle"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('backtest.delete_result', result_id=optimization.id) }}" 
+                                                  onsubmit="return confirm('Are you sure you want to delete this optimization result?')">
+                                                <button type="submit" class="btn btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center">
+                    <p class="text-muted mb-0">No optimization history available.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

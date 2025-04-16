@@ -1,0 +1,175 @@
+/**
+ * OG Signal Bot - Strategy Builder
+ * Custom CSS for the interactive strategy builder interface
+ */
+
+/* Component Cards in Sidebar */
+.component-card {
+  background-color: #333;
+  cursor: grab;
+  transition: background-color 0.2s;
+}
+
+.component-card:hover {
+  background-color: #444;
+}
+
+.component-card:active {
+  cursor: grabbing;
+}
+
+/* Canvas Components */
+.component-item {
+  width: 180px;
+  min-height: 80px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  transition: box-shadow 0.2s, transform 0.1s;
+}
+
+.component-item:hover {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.component-item.selected {
+  box-shadow: 0 0 0 2px var(--bs-primary);
+}
+
+/* Component Types */
+.component-indicator {
+  border-left: 4px solid #0dcaf0; /* info color */
+}
+
+.component-filter {
+  border-left: 4px solid #ffc107; /* warning color */
+}
+
+.component-condition {
+  border-left: 4px solid #6c757d; /* secondary color */
+}
+
+.component-action {
+  border-left: 4px solid #0d6efd; /* primary color */
+}
+
+/* Component Header */
+.component-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.component-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.component-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.component-controls .btn {
+  padding: 0.1rem 0.25rem;
+  font-size: 0.7rem;
+}
+
+/* Component Body */
+.component-body {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Component Footer & Connections */
+.component-footer {
+  position: relative;
+  min-height: 10px;
+}
+
+.connection-points {
+  display: flex;
+  justify-content: center;
+}
+
+.connection-output {
+  width: 14px;
+  height: 14px;
+  background-color: var(--bs-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+.connection-input {
+  width: 14px;
+  height: 14px;
+  background-color: var(--bs-success);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+
+/* Canvas */
+#strategyCanvas {
+  position: relative;
+}
+
+.canvas-placeholder {
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Strategy Output Preview */
+#strategyOutput {
+  font-family: Monaco, monospace;
+  font-size: 0.8rem;
+}
+
+/* Connections */
+.strategy-connection {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.strategy-connection path {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 2px;
+  fill: none;
+}
+
+/* Property Form */
+#propertiesForm .form-control-sm, 
+#propertiesForm .form-select-sm {
+  height: 30px;
+  font-size: 0.8rem;
+}
+
+#propertiesForm .form-label {
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 992px) {
+  .component-item {
+    width: 150px;
+    min-height: 70px;
+    font-size: 0.8rem;
+  }
+  
+  .component-title {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  #strategyCanvas {
+    height: 50vh !important;
+  }
+}

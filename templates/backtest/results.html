@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Backtest Results{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .equity-chart, .trade-chart {
+        height: 300px;
+        width: 100%;
+    }
+    .table-sm td, .table-sm th {
+        padding: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item active">Backtest Results</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Backtest Results: {{ result.strategy.name if result.strategy else 'Unknown Strategy' }}</h1>
+        <div class="btn-group">
+            <a href="{{ url_for('backtest.strategy_details', strategy_id=result.strategy_id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to Strategy
+            </a>
+            <a href="{{ url_for('backtest.run_backtest') }}" class="btn btn-primary">
+                <i class="bi bi-play-fill me-1"></i> New Backtest
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Backtest Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Strategy</dt>
+                        <dd class="col-sm-8">{{ result.strategy.name if result.strategy else 'Unknown Strategy' }}</dd>
+                        
+                        <dt class="col-sm-4">Date Range</dt>
+                        <dd class="col-sm-8">
+                            {{ result.start_date.strftime('%Y-%m-%d') if result.start_date else 'N/A' }} to 
+                            {{ result.end_date.strftime('%Y-%m-%d') if result.end_date else 'N/A' }}
+                        </dd>
+                        
+                        <dt class="col-sm-4">Timeframe</dt>
+                        <dd class="col-sm-8">{{ result.timeframe or 'N/A' }}</dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Test Date</dt>
+                        <dd class="col-sm-8">{{ result.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                        
+                        <dt class="col-sm-4">Symbols</dt>
+                        <dd class="col-sm-8">{{ result.symbols or 'N/A' }}</dd>
+                        
+                        <dt class="col-sm-4">Total Signals</dt>
+                        <dd class="col-sm-8">{{ result.total_signals }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm metric-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Win Rate</h6>
+                    <h3 class="mb-0 {% if result.win_rate >= 0.6 %}text-success{% elif result.win_rate < 0.4 %}text-danger{% endif %}">
+                        {{ '%.1f%%'|format(result.win_rate * 100) }}
+                    </h3>
+                    <div class="text-muted small mt-2">
+                        {{ result.total_trades }} total trades
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm metric-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Profit Factor</h6>
+                    <h3 class="mb-0 {% if result.profit_factor >= 1.5 %}text-success{% elif result.profit_factor < 1 %}text-danger{% endif %}">
+                        {{ '%.2f'|format(result.profit_factor) }}
+                    </h3>
+                    <div class="text-muted small mt-2">
+                        Gross profit / gross loss
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm metric-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Max Drawdown</h6>
+                    <h3 class="mb-0 {% if result.max_drawdown <= 0.1 %}text-success{% elif result.max_drawdown > 0.2 %}text-danger{% endif %}">
+                        {{ '%.1f%%'|format(result.max_drawdown * 100) }}
+                    </h3>
+                    <div class="text-muted small mt-2">
+                        Maximum portfolio dip
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm metric-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Sharpe Ratio</h6>
+                    <h3 class="mb-0 {% if result.sharpe_ratio >= 1 %}text-success{% elif result.sharpe_ratio < 0.5 %}text-danger{% endif %}">
+                        {{ '%.2f'|format(result.sharpe_ratio) }}
+                    </h3>
+                    <div class="text-muted small mt-2">
+                        Return vs. risk measure
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Equity Curve</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-sm btn-outline-secondary" id="equityViewLinear">Linear</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="equityViewLog">Log</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="equity-chart" id="equityChart"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Distribution of Returns</h5>
+                </div>
+                <div class="card-body">
+                    <div class="trade-chart" id="returnDistChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trades Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Trade Details</h5>
+            <span class="badge bg-primary">{{ results_data.trades|length if results_data.trades else 0 }} Trades</span>
+        </div>
+        <div class="card-body p-0">
+            {% if results_data.trades %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Direction</th>
+                                <th>Entry Date</th>
+                                <th>Entry Price</th>
+                                <th>Exit Date</th>
+                                <th>Exit Price</th>
+                                <th>Profit/Loss</th>
+                                <th>% Return</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trade in results_data.trades %}
+                                <tr class="{% if trade.profit_loss > 0 %}table-success{% elif trade.profit_loss < 0 %}table-danger{% endif %}">
+                                    <td>{{ trade.symbol }}</td>
+                                    <td>
+                                        <span class="badge {% if trade.direction == 'BULLISH' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ trade.direction }}
+                                        </span>
+                                    </td>
+                                    <td>{{ trade.timestamp[:10] if trade.timestamp else 'N/A' }}</td>
+                                    <td>{{ '%.2f'|format(trade.entry_price) }}</td>
+                                    <td>{{ trade.exit_date[:10] if trade.exit_date else 'N/A' }}</td>
+                                    <td>{{ '%.2f'|format(trade.exit_price) if trade.exit_price else 'N/A' }}</td>
+                                    <td class="{% if trade.profit_loss > 0 %}text-success{% elif trade.profit_loss < 0 %}text-danger{% endif %}">
+                                        {{ '%.2f'|format(trade.profit_loss) if trade.profit_loss else '0.00' }}
+                                    </td>
+                                    <td class="{% if trade.profit_loss > 0 %}text-success{% elif trade.profit_loss < 0 %}text-danger{% endif %}">
+                                        {% if trade.entry_price and trade.exit_price %}
+                                            {% if trade.direction == 'BULLISH' %}
+                                                {% set pct = (trade.exit_price - trade.entry_price) / trade.entry_price * 100 %}
+                                            {% else %}
+                                                {% set pct = (trade.entry_price - trade.exit_price) / trade.entry_price * 100 %}
+                                            {% endif %}
+                                            {{ '%.2f%%'|format(pct) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center">
+                    <p class="text-muted mb-0">No trade details available.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Strategy Parameters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Strategy Parameters</h5>
+        </div>
+        <div class="card-body">
+            {% if result.strategy and result.strategy.config %}
+                <div class="row">
+                    {% for key, value in result.strategy.config.items() %}
+                        <div class="col-md-4 mb-2">
+                            <strong>{{ key|replace('_', ' ')|title }}:</strong>
+                            <span>{{ value }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No strategy parameters available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+        
+        <form method="POST" action="{{ url_for('backtest.delete_result', result_id=result.id) }}" onsubmit="return confirm('Are you sure you want to delete this backtest result?')">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash me-1"></i> Delete Result
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart setup
+        const results = {{ results_data|tojson }};
+        
+        // Equity curve chart
+        if (results && results.performance && document.getElementById('equityChart')) {
+            let equityCurve = [];
+            let labels = [];
+            
+            // Create equity curve data
+            if (results.trades && results.trades.length > 0) {
+                let equity = 0;
+                
+                results.trades.forEach((trade, index) => {
+                    equity += trade.profit_loss;
+                    equityCurve.push(equity);
+                    labels.push(`Trade ${index+1}`);
+                });
+            } else {
+                equityCurve = [0];
+                labels = ['No trades'];
+            }
+            
+            // Create chart
+            const equityCtx = document.getElementById('equityChart').getContext('2d');
+            const equityChart = new Chart(equityCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Equity Curve',
+                        data: equityCurve,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Equity: $${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Linear/Log view toggle
+            document.getElementById('equityViewLinear').addEventListener('click', function() {
+                equityChart.options.scales.y.type = 'linear';
+                equityChart.update();
+            });
+            
+            document.getElementById('equityViewLog').addEventListener('click', function() {
+                equityChart.options.scales.y.type = 'logarithmic';
+                equityChart.update();
+            });
+        }
+        
+        // Return distribution chart
+        if (results && results.trades && results.trades.length > 0 && document.getElementById('returnDistChart')) {
+            // Extract returns
+            const returns = results.trades.map(trade => {
+                if (trade.direction === 'BULLISH') {
+                    return (trade.exit_price - trade.entry_price) / trade.entry_price * 100;
+                } else {
+                    return (trade.entry_price - trade.exit_price) / trade.entry_price * 100;
+                }
+            });
+            
+            // Create bins for histogram
+            const bins = [-20, -15, -10, -5, 0, 5, 10, 15, 20, 25];
+            const counts = new Array(bins.length).fill(0);
+            
+            returns.forEach(ret => {
+                for (let i = 0; i < bins.length; i++) {
+                    if (ret <= bins[i] || i === bins.length - 1) {
+                        counts[i]++;
+                        break;
+                    }
+                }
+            });
+            
+            const binLabels = bins.map((val, index) => {
+                if (index === 0) return `< ${val}%`;
+                if (index === bins.length - 1) return `> ${bins[index-1]}%`;
+                return `${bins[index-1]}% to ${val}%`;
+            });
+            
+            // Create chart
+            const distCtx = document.getElementById('returnDistChart').getContext('2d');
+            const distChart = new Chart(distCtx, {
+                type: 'bar',
+                data: {
+                    labels: binLabels,
+                    datasets: [{
+                        label: 'Trade Count',
+                        data: counts,
+                        backgroundColor: binLabels.map((_, i) => {
+                            const mid = Math.floor(bins.length / 2);
+                            if (i < mid) return 'rgba(255, 99, 132, 0.7)';
+                            return 'rgba(75, 192, 192, 0.7)';
+                        }),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Trades'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Return (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

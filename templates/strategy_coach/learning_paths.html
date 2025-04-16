@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | Learning Paths{% endblock %}
+
+{% block head %}
+<style>
+    .path-card {
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .path-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .path-card .card-header {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(129, 140, 248, 0.1) 100%);
+    }
+    
+    .progress-sm {
+        height: 6px;
+    }
+    
+    .focus-area-badge {
+        background-color: rgba(79, 70, 229, 0.1);
+        color: var(--accent-color);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        display: inline-block;
+    }
+    
+    .skill-level-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        background-color: rgba(0, 0, 0, 0.2);
+        margin-left: 8px;
+    }
+    
+    .create-path-card {
+        height: 100%;
+        border: 2px dashed rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .create-path-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-5px);
+    }
+    
+    .create-path-icon {
+        width: 70px;
+        height: 70px;
+        background-color: rgba(79, 70, 229, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
+    .create-path-icon i {
+        font-size: 28px;
+        color: var(--accent-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">Learning Paths</h2>
+            </div>
+            <p class="text-secondary">
+                Personalized learning journeys to help you master trading strategies at your own pace.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Create New Path Card -->
+        <div class="col-lg-4">
+            <a href="{{ url_for('strategy_coach.new_learning_path') }}" class="text-decoration-none">
+                <div class="create-path-card card">
+                    <div class="create-path-icon">
+                        <i class="fa fa-plus"></i>
+                    </div>
+                    <h4 class="mb-3">Create Learning Path</h4>
+                    <p class="text-secondary mb-3">
+                        Start a new personalized learning journey tailored to your skill level and goals
+                    </p>
+                    <button class="btn btn-primary">
+                        <i class="fa fa-plus-circle me-2"></i> Create Path
+                    </button>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Learning Paths -->
+        {% if learning_paths %}
+            {% for path in learning_paths %}
+                <div class="col-lg-4">
+                    <div class="path-card card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">{{ path.name }}</h5>
+                                <span class="skill-level-badge">
+                                    <i class="fa fa-{{ 'seedling' if path.skill_level == 'beginner' else 'user' if path.skill_level == 'intermediate' else 'user-graduate' if path.skill_level == 'advanced' else 'crown' }}"></i>
+                                    {{ path.skill_level|title }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-secondary mb-3">{{ path.description }}</p>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Progress</span>
+                                    <span>{{ path.progress|int }}%</span>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-{{ 'success' if path.progress >= 75 else 'primary' if path.progress >= 25 else 'secondary' }}" 
+                                         role="progressbar" 
+                                         style="width: {{ path.progress }}%" 
+                                         aria-valuenow="{{ path.progress }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                {% if path.modules %}
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="small text-secondary">Modules</span>
+                                        <span class="badge bg-secondary">{{ path.modules|length }}</span>
+                                    </div>
+                                    
+                                    {% set completed_modules = path.modules|selectattr('status', 'equalto', 'completed')|list|length %}
+                                    {% set in_progress_modules = path.modules|selectattr('status', 'equalto', 'in_progress')|list|length %}
+                                    {% set not_started_modules = path.modules|selectattr('status', 'equalto', 'not_started')|list|length %}
+                                    
+                                    <div class="d-flex gap-3">
+                                        <div>
+                                            <span class="badge bg-success">{{ completed_modules }}</span>
+                                            <span class="small text-secondary">Completed</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary">{{ in_progress_modules }}</span>
+                                            <span class="small text-secondary">In Progress</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-secondary">{{ not_started_modules }}</span>
+                                            <span class="small text-secondary">Not Started</span>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-2">
+                                        <span class="text-secondary small">No modules available</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="small text-secondary mb-2">Focus Areas:</div>
+                                {% for area in path.focus_areas %}
+                                <span class="focus-area-badge">{{ area|replace('_', ' ')|title }}</span>
+                                {% endfor %}
+                            </div>
+                            
+                            <div>
+                                <a href="{{ url_for('strategy_coach.view_learning_path', path_id=path.id) }}" class="btn btn-primary w-100">
+                                    {% if path.progress > 0 and path.progress < 100 %}
+                                        <i class="fa fa-arrow-right me-1"></i> Continue Learning
+                                    {% elif path.progress == 100 %}
+                                        <i class="fa fa-refresh me-1"></i> Review Path
+                                    {% else %}
+                                        <i class="fa fa-play me-1"></i> Start Learning
+                                    {% endif %}
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-footer text-secondary small">
+                            <i class="fa fa-calendar me-1"></i> Created: {{ path.created_at|datetime }}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body text-center p-5">
+                        <i class="fa fa-map-marked-alt fa-4x text-secondary mb-3"></i>
+                        <h4 class="mb-3">No Learning Paths Yet</h4>
+                        <p class="text-secondary mb-4">
+                            Create your first learning path to begin your personalized trading education journey
+                        </p>
+                        <a href="{{ url_for('strategy_coach.new_learning_path') }}" class="btn btn-primary">
+                            <i class="fa fa-plus-circle me-2"></i> Create Learning Path
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Learning Resources Section -->
+    <div class="card mt-5">
+        <div class="card-header">
+            <h5 class="mb-0">Featured Learning Resources</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="mb-3">OG Strategy Fundamentals</h5>
+                            <p class="text-secondary">
+                                A comprehensive guide to understanding the core principles of the OG Strategy, including EMA clouds, order blocks, and volume analysis.
+                            </p>
+                            <button class="btn btn-sm btn-outline-primary mt-2">
+                                <i class="fa fa-bookmark me-1"></i> Add to Learning
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="mb-3">Multi-Timeframe Analysis</h5>
+                            <p class="text-secondary">
+                                Learn how to align signals across multiple timeframes to increase your confidence in trading decisions and improve win rates.
+                            </p>
+                            <button class="btn btn-sm btn-outline-primary mt-2">
+                                <i class="fa fa-bookmark me-1"></i> Add to Learning
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="mb-3">Trading Psychology Mastery</h5>
+                            <p class="text-secondary">
+                                Develop the mental discipline and emotional control necessary for consistent profitable trading in any market condition.
+                            </p>
+                            <button class="btn btn-sm btn-outline-primary mt-2">
+                                <i class="fa fa-bookmark me-1"></i> Add to Learning
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

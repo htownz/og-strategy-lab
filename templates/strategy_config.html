@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Configuration - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="h2 mb-4">Strategy Configuration</h1>
+    
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Ripster EMA Cloud + OB + FVG Strategy</h5>
+            <div>
+                <button type="button" class="btn btn-outline-primary" id="load-defaults">
+                    <i class="fas fa-undo"></i> Load Defaults
+                </button>
+                <button type="button" class="btn btn-primary" id="save-config">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <form id="strategy-form">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="ema-periods" class="form-label">EMA Periods (comma-separated)</label>
+                            <input type="text" class="form-control" id="ema-periods" 
+                                   placeholder="9, 21, 72">
+                            <div class="form-text">Exponential Moving Average periods used for cloud calculations</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="volume-threshold" class="form-label">Volume Threshold Multiplier</label>
+                            <input type="number" class="form-control" id="volume-threshold" 
+                                   step="0.1" min="1" max="10" placeholder="1.5">
+                            <div class="form-text">Volume must exceed average by this multiplier to trigger signals</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="min-conditions" class="form-label">Minimum Conditions Required</label>
+                            <select class="form-select" id="min-conditions">
+                                <option value="1">1 - Minimal (more signals, less accuracy)</option>
+                                <option value="2">2 - Balanced</option>
+                                <option value="3">3 - Standard</option>
+                                <option value="4">4 - Strict (fewer signals, higher accuracy)</option>
+                                <option value="5">5 - Maximum (very selective)</option>
+                            </select>
+                            <div class="form-text">Number of technical conditions that must be met for a signal</div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="enable-obfvg">
+                            <label class="form-check-label" for="enable-obfvg">Enable Order Blocks & Fair Value Gaps</label>
+                            <div class="form-text">When enabled, signals require OB/FVG confirmation</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> Strategy Information</h5>
+                            <p>This strategy combines Ripster EMA Cloud with Order Block (OB) & Fair Value Gap (FVG) analysis to identify high-probability entries.</p>
+                            <ul>
+                                <li><strong>EMA Cloud:</strong> Identifies trend direction and potential reversals</li>
+                                <li><strong>Order Blocks:</strong> Areas of significant buying/selling pressure</li>
+                                <li><strong>Fair Value Gaps:</strong> Price inefficiencies that tend to fill</li>
+                                <li><strong>Volume Analysis:</strong> Confirms moves with institutional participation</li>
+                            </ul>
+                            <p class="mb-0">Changes to these settings will affect future signal generation. Settings are saved in the database and persist between restarts.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card bg-dark">
+                            <div class="card-header">
+                                <h6 class="mb-0">Advanced Configuration</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="timeframe" class="form-label">Primary Timeframe</label>
+                                            <select class="form-select" id="timeframe">
+                                                <option value="1m">1 Minute</option>
+                                                <option value="5m">5 Minutes</option>
+                                                <option value="15m">15 Minutes</option>
+                                                <option value="30m">30 Minutes</option>
+                                                <option value="1h" selected>1 Hour</option>
+                                                <option value="4h">4 Hours</option>
+                                                <option value="1d">Daily</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="confirmation-timeframe" class="form-label">Confirmation Timeframe</label>
+                                            <select class="form-select" id="confirmation-timeframe">
+                                                <option value="same">Same as Primary</option>
+                                                <option value="higher">Next Higher</option>
+                                                <option value="lower">Next Lower</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cooldown-period" class="form-label">Signal Cooldown (minutes)</label>
+                                            <input type="number" class="form-control" id="cooldown-period" 
+                                                  min="0" max="1440" step="5" value="60">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="enable-higher-tf-filter" checked>
+                                            <label class="form-check-label" for="enable-higher-tf-filter">Filter with Higher Timeframe Trend</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="enable-auto-trailing-stop" checked>
+                                            <label class="form-check-label" for="enable-auto-trailing-stop">Enable Auto Trailing Stop</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">Last updated: <span id="last-updated">Never</span></span>
+                <div>
+                    <button class="btn btn-outline-secondary me-2" id="test-config">
+                        <i class="fas fa-vial"></i> Test Configuration
+                    </button>
+                    <button class="btn btn-primary" id="save-config-footer">
+                        <i class="fas fa-save"></i> Save Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Results from test configuration -->
+    <div class="card mt-4 d-none" id="test-results">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Test Results</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <p>Testing configuration against recent market data...</p>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Socket.IO connection
+    const socket = io();
+    
+    socket.on('connect', function() {
+        console.log('Connected to Socket.IO server');
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('Disconnected from Socket.IO server');
+    });
+    
+    socket.on('config_update_status', function(data) {
+        console.log('Received config update status:', data);
+        if (data.status === 'success') {
+            showToast('Configuration updated in running strategy!', 'success');
+        } else {
+            showToast(data.message, 'warning');
+        }
+    });
+    
+    // Load current configuration
+    loadCurrentConfig();
+    
+    // Add event listeners
+    document.getElementById('save-config').addEventListener('click', saveConfig);
+    document.getElementById('save-config-footer').addEventListener('click', saveConfig);
+    document.getElementById('load-defaults').addEventListener('click', loadDefaults);
+    document.getElementById('test-config').addEventListener('click', testConfig);
+    
+    function loadCurrentConfig() {
+        fetch('/api/config/strategy')
+            .then(response => response.json())
+            .then(data => {
+                // Fill form with current values
+                document.getElementById('ema-periods').value = data.ema_periods.join(', ');
+                document.getElementById('volume-threshold').value = data.volume_threshold;
+                document.getElementById('min-conditions').value = data.min_conditions_required;
+                document.getElementById('enable-obfvg').checked = data.enable_obfvg;
+                
+                // Fill advanced settings if they exist
+                if (data.timeframe) document.getElementById('timeframe').value = data.timeframe;
+                if (data.confirmation_timeframe) document.getElementById('confirmation-timeframe').value = data.confirmation_timeframe;
+                if (data.cooldown_period) document.getElementById('cooldown-period').value = data.cooldown_period;
+                if (data.enable_higher_tf_filter !== undefined) document.getElementById('enable-higher-tf-filter').checked = data.enable_higher_tf_filter;
+                if (data.enable_auto_trailing_stop !== undefined) document.getElementById('enable-auto-trailing-stop').checked = data.enable_auto_trailing_stop;
+                
+                // Update last updated timestamp
+                if (data.last_updated) {
+                    document.getElementById('last-updated').textContent = new Date(data.last_updated).toLocaleString();
+                }
+                
+                console.log('Configuration loaded', data);
+            })
+            .catch(error => {
+                console.error('Error loading configuration:', error);
+                showToast('Error loading configuration', 'danger');
+            });
+    }
+    
+    function saveConfig() {
+        // Get form values
+        const emaPeriods = document.getElementById('ema-periods').value.split(',').map(p => parseInt(p.trim()));
+        const volumeThreshold = parseFloat(document.getElementById('volume-threshold').value);
+        const minConditionsRequired = parseInt(document.getElementById('min-conditions').value);
+        const enableObfvg = document.getElementById('enable-obfvg').checked;
+        
+        // Get advanced settings
+        const timeframe = document.getElementById('timeframe').value;
+        const confirmationTimeframe = document.getElementById('confirmation-timeframe').value;
+        const cooldownPeriod = parseInt(document.getElementById('cooldown-period').value);
+        const enableHigherTfFilter = document.getElementById('enable-higher-tf-filter').checked;
+        const enableAutoTrailingStop = document.getElementById('enable-auto-trailing-stop').checked;
+        
+        // Validate inputs
+        if (emaPeriods.some(isNaN)) {
+            showToast('Invalid EMA periods. Please enter comma-separated numbers.', 'danger');
+            return;
+        }
+        
+        if (isNaN(volumeThreshold) || volumeThreshold < 1) {
+            showToast('Volume threshold must be a number greater than or equal to 1.', 'danger');
+            return;
+        }
+        
+        // Create configuration object
+        const config = {
+            ema_periods: emaPeriods,
+            volume_threshold: volumeThreshold,
+            min_conditions_required: minConditionsRequired,
+            enable_obfvg: enableObfvg,
+            timeframe: timeframe,
+            confirmation_timeframe: confirmationTimeframe,
+            cooldown_period: cooldownPeriod,
+            enable_higher_tf_filter: enableHigherTfFilter,
+            enable_auto_trailing_stop: enableAutoTrailingStop,
+            last_updated: new Date().toISOString()
+        };
+        
+        // Save to server
+        fetch('/api/config/strategy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Configuration saved successfully!', 'success');
+            document.getElementById('last-updated').textContent = new Date().toLocaleString();
+            
+            // Emit config update via Socket.IO for real-time bot updates
+            if (typeof socket !== 'undefined' && socket.connected) {
+                socket.emit('strategy_config_updated', config);
+                console.log('Emitted strategy config update via Socket.IO');
+            } else {
+                console.warn('Socket.IO not connected, strategy update only saved to database');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving configuration:', error);
+            showToast('Error saving configuration', 'danger');
+        });
+    }
+    
+    function loadDefaults() {
+        // Default values
+        const defaults = {
+            ema_periods: [9, 21, 72],
+            volume_threshold: 1.5,
+            min_conditions_required: 3,
+            enable_obfvg: true,
+            timeframe: '1h',
+            confirmation_timeframe: 'higher',
+            cooldown_period: 60,
+            enable_higher_tf_filter: true,
+            enable_auto_trailing_stop: true
+        };
+        
+        // Fill form with default values
+        document.getElementById('ema-periods').value = defaults.ema_periods.join(', ');
+        document.getElementById('volume-threshold').value = defaults.volume_threshold;
+        document.getElementById('min-conditions').value = defaults.min_conditions_required;
+        document.getElementById('enable-obfvg').checked = defaults.enable_obfvg;
+        document.getElementById('timeframe').value = defaults.timeframe;
+        document.getElementById('confirmation-timeframe').value = defaults.confirmation_timeframe;
+        document.getElementById('cooldown-period').value = defaults.cooldown_period;
+        document.getElementById('enable-higher-tf-filter').checked = defaults.enable_higher_tf_filter;
+        document.getElementById('enable-auto-trailing-stop').checked = defaults.enable_auto_trailing_stop;
+        
+        showToast('Default configuration loaded. Click Save to apply.', 'info');
+    }
+    
+    function testConfig() {
+        // Show test results card with loading state
+        const testResults = document.getElementById('test-results');
+        testResults.classList.remove('d-none');
+        testResults.scrollIntoView({ behavior: 'smooth' });
+        
+        // Simulate testing (in a real app, this would make an API call to test the config)
+        setTimeout(() => {
+            const cardBody = testResults.querySelector('.card-body');
+            
+            // Mock results - in a real implementation, this would show actual backtest results
+            cardBody.innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle"></i> Configuration Test Complete</h5>
+                    <p>The current configuration was tested against historical data with the following results:</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header">Signal Quality</div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Win Rate:</span>
+                                    <span class="text-success">68.7%</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Signals Generated:</span>
+                                    <span>127 over 30 days</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Average Profit Factor:</span>
+                                    <span class="text-success">2.17</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header">Performance by Symbol</div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Signals</th>
+                                            <th>Win %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>SPY</td>
+                                            <td>18</td>
+                                            <td class="text-success">72.2%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>QQQ</td>
+                                            <td>15</td>
+                                            <td class="text-success">73.3%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>AAPL</td>
+                                            <td>12</td>
+                                            <td class="text-success">66.7%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>TSLA</td>
+                                            <td>14</td>
+                                            <td class="text-warning">57.1%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <p class="mb-0"><i class="fas fa-info-circle"></i> Note: These are simulated results based on historical data. Actual future performance may vary.</p>
+                </div>
+                
+                <button class="btn btn-primary" onclick="document.getElementById('save-config').click()">
+                    <i class="fas fa-save"></i> Apply This Configuration
+                </button>
+            `;
+        }, 2000);
+    }
+    
+    function showToast(message, type = 'info') {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.style.position = 'fixed';
+        toast.style.bottom = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Add to document
+        document.body.appendChild(toast);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

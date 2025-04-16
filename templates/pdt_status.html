@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}PDT Status{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>Pattern Day Trader Status</h1>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="pdtSwitch" {% if status.pdt_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="pdtSwitch">PDT Rule Tracking</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDT Warning Banner -->
+    {% if status.limit_reached %}
+    <div class="alert alert-danger mb-4" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle me-3 fs-3"></i>
+            <div>
+                <h4 class="alert-heading">Day Trade Limit Reached!</h4>
+                <p class="mb-0">You've made <strong>{{ status.day_trade_count }} day trades</strong> in the past 5 trading days, reaching your maximum of <strong>{{ status.max_allowed }}</strong>.</p>
+                {% if status.next_available %}
+                <p class="mb-0">Next day trade available: <strong>{{ status.next_available|replace('T', ' ')|truncate(16, true, '') }}</strong></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <!-- PDT Status Summary -->
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5>PDT Rule Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-center mb-4">
+                        <div class="position-relative" style="width: 200px; height: 200px;">
+                            <!-- Day Trade Counter Gauge -->
+                            <div class="position-absolute w-100 h-100">
+                                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Background circle -->
+                                    <circle cx="100" cy="100" r="90" fill="none" stroke="#2a2a2a" stroke-width="16"/>
+                                    
+                                    <!-- Progress arc -->
+                                    {% set percentage = (status.day_trade_count / status.max_allowed) * 100 %}
+                                    {% set dash_array = 565.48 %}  <!-- Circumference of circle with r=90 -->
+                                    {% set dash_offset = dash_array - (dash_array * percentage / 100) %}
+                                    
+                                    <!-- Color based on how close to limit -->
+                                    {% if percentage < 50 %}
+                                    {% set stroke_color = "#28a745" %}  <!-- Green -->
+                                    {% elif percentage < 85 %}
+                                    {% set stroke_color = "#ffc107" %}  <!-- Yellow -->
+                                    {% else %}
+                                    {% set stroke_color = "#dc3545" %}  <!-- Red -->
+                                    {% endif %}
+                                    
+                                    <circle cx="100" cy="100" r="90" 
+                                            fill="none" 
+                                            stroke="{{ stroke_color }}" 
+                                            stroke-width="16"
+                                            stroke-dasharray="{{ dash_array }}"
+                                            stroke-dashoffset="{{ dash_offset }}"
+                                            transform="rotate(-90 100 100)"/>
+                                    
+                                </svg>
+                            </div>
+                            <!-- Day Trade Counter Text -->
+                            <div class="position-absolute w-100 h-100 d-flex flex-column justify-content-center align-items-center">
+                                <div class="fs-1 fw-bold">{{ status.day_trade_count }}</div>
+                                <div class="fs-5">/ {{ status.max_allowed }}</div>
+                                <div class="text-muted small">Day Trades</div>
+                                <div class="text-muted small">(Last 5 Days)</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center my-3">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="swingTradeSwitch" {% if status.swing_trade_only %}checked{% endif %}>
+                            <label class="form-check-label" for="swingTradeSwitch">Show Only Swing Trades</label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <div class="btn-group" role="group" aria-label="Timeframe selection">
+                            {% for timeframe in status.available_timeframes %}
+                            <input type="radio" class="btn-check" name="timeframeOptions" id="timeframe{{ timeframe }}" 
+                                   {% if timeframe == status.preferred_timeframe %}checked{% endif %} 
+                                   value="{{ timeframe }}">
+                            <label class="btn btn-outline-primary" for="timeframe{{ timeframe }}">{{ timeframe }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Day Trades -->
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Day Trades</h5>
+                    <span class="badge bg-primary">Last 5 Trading Days</span>
+                </div>
+                <div class="card-body">
+                    {% if status.day_trades %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Symbol</th>
+                                        <th>Direction</th>
+                                        <th>Timeframe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for trade in status.day_trades %}
+                                    <tr>
+                                        <td>{{ trade.timestamp|replace('T', ' ')|truncate(16, true, '') }}</td>
+                                        <td>{{ trade.symbol }}</td>
+                                        <td>
+                                            {% if trade.direction in ['BUY', 'LONG'] %}
+                                            <span class="text-success">{{ trade.direction }}</span>
+                                            {% else %}
+                                            <span class="text-danger">{{ trade.direction }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ trade.timeframe }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i> No day trades in the past 5 trading days
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Trading Calendar -->
+        <div class="col-md-12 mb-4">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5>Day Trading Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="day-trade-calendar">
+                        {% for i in range(5) %}
+                            {% set day_offset = 4 - i %}
+                            {% set day_date = (status.next_available|default(now, true)|string|replace('T', ' ')|truncate(10, true, ''))|datetimestring|date - timedelta(days=day_offset+PDT_WINDOW_DAYS) %}
+                            {% set day_str = day_date.strftime('%Y-%m-%d') %}
+                            
+                            <div class="day-box">
+                                <div class="day-date">{{ day_date.strftime('%a, %b %d') }}</div>
+                                <div class="day-count {{ 'active' if day_str in status.trade_dates else '' }}">
+                                    {{ status.trade_dates.get(day_str, 0) }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PDT Information -->
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5>About Pattern Day Trader (PDT) Rule</h5>
+                </div>
+                <div class="card-body">
+                    <p>The Pattern Day Trader rule applies to traders with less than $25,000 in their account and restricts them to 3 day trades within a 5-day rolling period.</p>
+                    
+                    <h6>Key Points:</h6>
+                    <ul>
+                        <li>A day trade occurs when you buy and sell the same security on the same trading day.</li>
+                        <li>The 5-day window is a rolling window, not a calendar week.</li>
+                        <li>If you exceed the limit, you may be flagged as a Pattern Day Trader and restricted from making further trades.</li>
+                    </ul>
+                    
+                    <h6>Options:</h6>
+                    <ol>
+                        <li>Use swing trades (longer timeframes) to avoid day trading limits.</li>
+                        <li>Set your preferred timeframe to focus on specific trading strategies.</li>
+                        <li>Toggle "Show Only Swing Trades" to filter out day trading signals when you're near your limit.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // PDT Rule Toggle
+    document.getElementById('pdtSwitch').addEventListener('change', function() {
+        fetch('/pdt/api/toggle_pdt_rule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                enabled: this.checked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+            } else {
+                showAlert('danger', data.error || 'Failed to update PDT rule setting');
+                // Reset switch to previous state
+                this.checked = !this.checked;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Error updating PDT rule setting');
+            // Reset switch to previous state
+            this.checked = !this.checked;
+        });
+    });
+    
+    // Swing Trade Only Toggle
+    document.getElementById('swingTradeSwitch').addEventListener('change', function() {
+        fetch('/pdt/api/toggle_swing_only', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                swing_only: this.checked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                // Emit socket event for real-time update to scanner
+                if (typeof io !== 'undefined') {
+                    const socket = io();
+                    socket.emit('update_trade_mode', { swing_only: this.checked });
+                }
+            } else {
+                showAlert('danger', data.error || 'Failed to update trade mode');
+                // Reset switch to previous state
+                this.checked = !this.checked;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Error updating trade mode');
+            // Reset switch to previous state
+            this.checked = !this.checked;
+        });
+    });
+    
+    // Timeframe Selection
+    document.querySelectorAll('input[name="timeframeOptions"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                fetch('/pdt/api/update_timeframe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        timeframe: this.value
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('success', data.message);
+                        // Emit socket event for real-time update to scanner
+                        if (typeof io !== 'undefined') {
+                            const socket = io();
+                            socket.emit('update_timeframe', { timeframe: this.value });
+                        }
+                    } else {
+                        showAlert('danger', data.error || 'Failed to update timeframe');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'Error updating timeframe');
+                });
+            }
+        });
+    });
+    
+    // Helper function to show alerts
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        const container = document.querySelector('.container');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto dismiss after 3 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }, 3000);
+    }
+});
+</script>
+
+<style>
+/* Day Trade Calendar */
+.day-trade-calendar {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0;
+}
+
+.day-box {
+    text-align: center;
+    width: 18%;
+}
+
+.day-date {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.day-count {
+    background-color: #2a2a2a;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.day-count.active {
+    background-color: #007bff;
+    color: white;
+}
+</style>
+{% endblock %}

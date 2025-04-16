@@ -1,0 +1,654 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css"/>
+<link rel="stylesheet" href="/static/css/quotestream.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.3.0/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<script src="/static/js/socket.io.min.js"></script>
+<style>
+  .chart-container {
+    position: relative;
+    height: 80vh;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .data-panel {
+    background-color: var(--bs-dark);
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+  }
+  .indicator-btn.active {
+    background-color: var(--bs-primary);
+    color: white;
+  }
+  .timeframe-btn.active {
+    background-color: var(--bs-primary);
+    color: white;
+  }
+  .chart-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+  }
+  .quote-data {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .quote-item {
+    padding: 5px 10px;
+    border-radius: 4px;
+    background-color: var(--bs-dark);
+  }
+  .quote-item.positive {
+    color: #28a745;
+  }
+  .quote-item.negative {
+    color: #dc3545;
+  }
+  .last-updated {
+    font-size: 0.8rem;
+    color: var(--bs-secondary);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="row">
+    <div class="col-12 mb-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h2>{{ symbol }} Chart</h2>
+          <a href="/quotestream/dashboard" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="fas fa-arrow-left"></i> Back to QuoteStream Dashboard
+          </a>
+        </div>
+        <div>
+          <span class="badge bg-dark connection-status">Disconnected</span>
+          <span class="last-updated text-muted"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <div class="data-panel">
+        <div class="quote-data" id="quoteData">
+          <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span>Loading quote data...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div class="chart-actions">
+        <div class="btn-group" role="group" aria-label="Chart Type">
+          <button type="button" class="btn btn-secondary" id="candlestickBtn">Candlestick</button>
+          <button type="button" class="btn btn-secondary" id="lineBtn">Line</button>
+          <button type="button" class="btn btn-secondary" id="barBtn">Bar</button>
+        </div>
+        
+        <div class="btn-group" role="group" aria-label="Timeframe">
+          <button type="button" class="btn btn-secondary timeframe-btn" data-timeframe="1min">1m</button>
+          <button type="button" class="btn btn-secondary timeframe-btn" data-timeframe="5min">5m</button>
+          <button type="button" class="btn btn-secondary timeframe-btn" data-timeframe="15min">15m</button>
+          <button type="button" class="btn btn-secondary timeframe-btn" data-timeframe="1h">1h</button>
+          <button type="button" class="btn btn-secondary timeframe-btn active" data-timeframe="1d">D</button>
+          <button type="button" class="btn btn-secondary timeframe-btn" data-timeframe="1w">W</button>
+        </div>
+        
+        <div class="btn-group" role="group" aria-label="Indicators">
+          <button type="button" class="btn btn-secondary indicator-btn active" data-indicator="volume">Volume</button>
+          <button type="button" class="btn btn-secondary indicator-btn" data-indicator="sma">SMA</button>
+          <button type="button" class="btn btn-secondary indicator-btn active" data-indicator="ema">EMA</button>
+          <button type="button" class="btn btn-secondary indicator-btn" data-indicator="bb">Bollinger</button>
+          <button type="button" class="btn btn-secondary indicator-btn" data-indicator="rsi">RSI</button>
+        </div>
+        
+        <div class="btn-group" role="group" aria-label="Actions">
+          <button type="button" class="btn btn-primary" id="resetZoomBtn">Reset Zoom</button>
+          <button type="button" class="btn btn-success" id="scanBtn">Scan Strategy</button>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="priceChart"></canvas>
+      </div>
+      
+      <div class="chart-container" style="height: 20vh;">
+        <canvas id="volumeChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const symbol = '{{ symbol }}';
+  const initialTimeframe = '{{ timeframe }}';
+  const chartType = '{{ chart_type }}';
+  const indicators = {{ indicators|tojson }};
+  
+  // Socket.IO setup
+  const socket = io();
+  let priceChart = null;
+  let volumeChart = null;
+  let quoteData = {};
+  let connected = false;
+  let lastUpdated = new Date();
+  
+  // Connection status indicator
+  socket.on('connect', function() {
+    connected = true;
+    updateConnectionStatus();
+    
+    // Subscribe to updates for this symbol
+    socket.emit('subscribe', { symbol: symbol });
+  });
+  
+  socket.on('disconnect', function() {
+    connected = false;
+    updateConnectionStatus();
+  });
+  
+  function updateConnectionStatus() {
+    const statusElement = document.querySelector('.connection-status');
+    if (connected) {
+      statusElement.textContent = 'Connected';
+      statusElement.classList.remove('bg-dark');
+      statusElement.classList.add('bg-success');
+    } else {
+      statusElement.textContent = 'Disconnected';
+      statusElement.classList.remove('bg-success');
+      statusElement.classList.add('bg-dark');
+    }
+  }
+  
+  // Update timestamp
+  function updateTimestamp() {
+    const timestampElement = document.querySelector('.last-updated');
+    const now = new Date();
+    const diff = Math.round((now - lastUpdated) / 1000);
+    
+    if (diff < 60) {
+      timestampElement.textContent = `Updated ${diff} seconds ago`;
+    } else if (diff < 3600) {
+      timestampElement.textContent = `Updated ${Math.floor(diff / 60)} minutes ago`;
+    } else {
+      timestampElement.textContent = `Updated ${Math.floor(diff / 3600)} hours ago`;
+    }
+  }
+  
+  setInterval(updateTimestamp, 5000);
+  
+  // Update quote data display
+  function updateQuoteDisplay(data) {
+    const quoteElement = document.getElementById('quoteData');
+    
+    if (!data) {
+      quoteElement.innerHTML = '<div class="text-muted">No data available</div>';
+      return;
+    }
+    
+    const changeClass = data.change >= 0 ? 'positive' : 'negative';
+    const changeIcon = data.change >= 0 ? '▲' : '▼';
+    
+    quoteElement.innerHTML = `
+      <div class="quote-item fw-bold">${symbol}</div>
+      <div class="quote-item fw-bold">$${data.last.toFixed(2)}</div>
+      <div class="quote-item ${changeClass}">${changeIcon} ${data.change.toFixed(2)} (${data.change_percent.toFixed(2)}%)</div>
+      <div class="quote-item">Vol: ${numberWithCommas(data.volume)}</div>
+      <div class="quote-item">Open: $${data.open.toFixed(2)}</div>
+      <div class="quote-item">High: $${data.high.toFixed(2)}</div>
+      <div class="quote-item">Low: $${data.low.toFixed(2)}</div>
+      <div class="quote-item">Prev: $${data.prev_close.toFixed(2)}</div>
+      <div class="quote-item">Bid: $${data.bid.toFixed(2)} x ${data.bid_size}</div>
+      <div class="quote-item">Ask: $${data.ask.toFixed(2)} x ${data.ask_size}</div>
+    `;
+    
+    lastUpdated = new Date();
+    updateTimestamp();
+  }
+  
+  // Helper for formatting numbers with commas
+  function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  
+  // Listen for quote updates
+  socket.on('quote_update', function(data) {
+    if (data.symbol === symbol) {
+      quoteData = data.quote;
+      updateQuoteDisplay(data.quote);
+      addDataPoint(data.quote);
+    }
+  });
+  
+  // Initial data fetch with caching
+  function fetchInitialData() {
+    // Fetch quote data
+    fetch(`/quotestream/api/quotes?symbols=${symbol}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data[symbol]) {
+          quoteData = data[symbol];
+          updateQuoteDisplay(data[symbol]);
+        }
+      })
+      .catch(error => console.error('Error fetching quotes:', error));
+    
+    // Check if we have cached data for this symbol and timeframe
+    const cacheKey = `chart_data_${symbol}_${initialTimeframe}`;
+    const cachedData = sessionStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      try {
+        // Use cached data if available to improve load time
+        console.log('Using cached chart data');
+        const data = JSON.parse(cachedData);
+        initializeCharts(data);
+        
+        // Fetch fresh data in the background for next time
+        refreshChartDataInBackground(symbol, initialTimeframe);
+        return;
+      } catch (e) {
+        console.error('Error parsing cached data:', e);
+        // Continue with regular fetch if cache parsing fails
+      }
+    }
+    
+    // Fetch historical data for chart if no cache available
+    fetch(`/quotestream/api/historical/${symbol}?timeframe=${initialTimeframe}`)
+      .then(response => response.json())
+      .then(data => {
+        initializeCharts(data);
+        
+        // Cache the data for future use
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch (e) {
+          console.error('Error caching data:', e);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching historical data:', error);
+        // Generate sample data if API fails
+        const sampleData = generateSampleData();
+        initializeCharts(sampleData);
+      });
+  }
+  
+  // Refresh chart data in background without blocking UI
+  function refreshChartDataInBackground(symbol, timeframe) {
+    setTimeout(() => {
+      fetch(`/quotestream/api/historical/${symbol}?timeframe=${timeframe}`)
+        .then(response => response.json())
+        .then(data => {
+          // Update cache with fresh data
+          const cacheKey = `chart_data_${symbol}_${timeframe}`;
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            console.log('Updated cached chart data');
+          } catch (e) {
+            console.error('Error updating cached data:', e);
+          }
+        })
+        .catch(error => {
+          console.error('Error refreshing chart data:', error);
+        });
+    }, 5000); // Delay by 5 seconds to prioritize UI rendering first
+  }
+  
+  // Generate sample data for development/demo with improved performance
+  function generateSampleData() {
+    const data = [];
+    const now = new Date();
+    let price = quoteData.last || 100;
+    
+    // Generate only 50 data points for better performance
+    const numPoints = 50;
+    
+    for (let i = 0; i < numPoints; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - (numPoints - i));
+      
+      const open = price * (1 + (Math.random() - 0.5) * 0.02);
+      const high = open * (1 + Math.random() * 0.015);
+      const low = open * (1 - Math.random() * 0.015);
+      const close = (open + high + low) / 3 + (Math.random() - 0.5) * 2;
+      const volume = Math.floor(Math.random() * 1000000) + 500000;
+      
+      data.push({
+        time: date.toISOString(),
+        open: open,
+        high: high,
+        low: low,
+        close: close,
+        volume: volume
+      });
+      
+      price = close;
+    }
+    
+    return data;
+  }
+  
+  // Initialize charts with data
+  function initializeCharts(data) {
+    if (!data || data.length === 0) {
+      console.error('No data available for charts');
+      return;
+    }
+    
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+    
+    // Process data for Chart.js
+    const times = data.map(item => new Date(item.time));
+    const opens = data.map(item => item.open);
+    const highs = data.map(item => item.high);
+    const lows = data.map(item => item.low);
+    const closes = data.map(item => item.close);
+    const volumes = data.map(item => item.volume);
+    
+    // Calculate EMA (20-period)
+    const ema20 = calculateEMA(closes, 20);
+    
+    // Price chart (candlestick or line based on preference)
+    priceChart = new Chart(priceCtx, {
+      type: chartType === 'line' ? 'line' : 'bar',
+      data: {
+        labels: times,
+        datasets: [
+          {
+            label: symbol + ' Price',
+            data: chartType === 'line' ? closes : data.map((item, i) => {
+              return {
+                x: times[i],
+                o: item.open,
+                h: item.high,
+                l: item.low,
+                c: item.close
+              };
+            }),
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: data.map((item, i) => {
+              return item.close >= item.open ? 'rgba(0, 192, 0, 0.5)' : 'rgba(192, 0, 0, 0.5)';
+            }),
+            borderWidth: 1
+          },
+          {
+            label: 'EMA 20',
+            data: ema20.map((val, i) => {
+              return { x: times[i], y: val };
+            }),
+            type: 'line',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            hidden: !indicators.includes('ema')
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              tooltipFormat: 'MMM d, yyyy'
+            },
+            title: {
+              display: true,
+              text: 'Date'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Price ($)'
+            }
+          }
+        },
+        plugins: {
+          zoom: {
+            pan: {
+              enabled: true,
+              mode: 'x'
+            },
+            zoom: {
+              wheel: {
+                enabled: true
+              },
+              pinch: {
+                enabled: true
+              },
+              mode: 'x'
+            }
+          }
+        }
+      }
+    });
+    
+    // Volume chart
+    volumeChart = new Chart(volumeCtx, {
+      type: 'bar',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Volume',
+          data: volumes,
+          backgroundColor: 'rgba(153, 102, 255, 0.5)',
+          borderColor: 'rgba(153, 102, 255, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              tooltipFormat: 'MMM d, yyyy'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Volume'
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  // Calculate EMA
+  function calculateEMA(data, period) {
+    const k = 2 / (period + 1);
+    const emaData = [];
+    let ema = data[0];
+    
+    // Initialize with SMA
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+      sum += data[i];
+    }
+    ema = sum / period;
+    
+    // Calculate EMA
+    emaData.push(ema);
+    for (let i = 1; i < data.length; i++) {
+      if (i < period) {
+        emaData.push(null);
+      } else {
+        ema = data[i] * k + ema * (1 - k);
+        emaData.push(ema);
+      }
+    }
+    
+    return emaData;
+  }
+  
+  // Add new data point to charts
+  function addDataPoint(quote) {
+    if (!priceChart || !volumeChart || !quote) return;
+    
+    const now = new Date();
+    
+    // Add to price chart
+    if (priceChart.data.labels.length > 300) {
+      priceChart.data.labels.shift();
+      priceChart.data.datasets[0].data.shift();
+      if (priceChart.data.datasets.length > 1) {
+        priceChart.data.datasets[1].data.shift();
+      }
+    }
+    
+    priceChart.data.labels.push(now);
+    priceChart.data.datasets[0].data.push({
+      x: now,
+      y: quote.last,
+      o: quote.open,
+      h: quote.high,
+      l: quote.low,
+      c: quote.last
+    });
+    
+    // Update EMA if enabled
+    if (priceChart.data.datasets.length > 1) {
+      const prices = priceChart.data.datasets[0].data.map(d => d.c || d.y);
+      const ema = calculateEMA(prices, 20);
+      priceChart.data.datasets[1].data = ema.map((val, i) => {
+        return { x: priceChart.data.labels[i], y: val };
+      });
+    }
+    
+    // Add to volume chart
+    if (volumeChart.data.labels.length > 300) {
+      volumeChart.data.labels.shift();
+      volumeChart.data.datasets[0].data.shift();
+    }
+    
+    volumeChart.data.labels.push(now);
+    volumeChart.data.datasets[0].data.push(quote.volume);
+    
+    // Update charts
+    priceChart.update();
+    volumeChart.update();
+  }
+  
+  // Event listeners for chart controls
+  document.getElementById('candlestickBtn').addEventListener('click', function() {
+    if (priceChart) {
+      priceChart.destroy();
+      priceChart = null;
+      const data = generateSampleData();
+      initializeCharts(data);
+    }
+  });
+  
+  document.getElementById('lineBtn').addEventListener('click', function() {
+    if (priceChart) {
+      priceChart.config.type = 'line';
+      priceChart.update();
+    }
+  });
+  
+  document.getElementById('barBtn').addEventListener('click', function() {
+    if (priceChart) {
+      priceChart.config.type = 'bar';
+      priceChart.update();
+    }
+  });
+  
+  document.getElementById('resetZoomBtn').addEventListener('click', function() {
+    if (priceChart) {
+      priceChart.resetZoom();
+    }
+  });
+  
+  document.getElementById('scanBtn').addEventListener('click', function() {
+    // Send to OG Strategy Scanner
+    fetch('/quotestream/api/send-to-strategy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ symbol: symbol })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Failed to send to OG Strategy Scanner');
+    });
+  });
+  
+  // Indicator buttons
+  document.querySelectorAll('.indicator-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      this.classList.toggle('active');
+      const indicator = this.dataset.indicator;
+      
+      if (indicator === 'ema' && priceChart && priceChart.data.datasets.length > 1) {
+        priceChart.data.datasets[1].hidden = !this.classList.contains('active');
+        priceChart.update();
+      }
+      
+      // Implement other indicators as needed
+    });
+  });
+  
+  // Timeframe buttons
+  document.querySelectorAll('.timeframe-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      const timeframe = this.dataset.timeframe;
+      
+      // Fetch new data for the selected timeframe
+      fetch(`/quotestream/api/historical/${symbol}?timeframe=${timeframe}`)
+        .then(response => response.json())
+        .then(data => {
+          if (priceChart) priceChart.destroy();
+          if (volumeChart) volumeChart.destroy();
+          initializeCharts(data);
+        })
+        .catch(error => {
+          console.error('Error fetching historical data:', error);
+          // Use sample data if API fails
+          const sampleData = generateSampleData();
+          if (priceChart) priceChart.destroy();
+          if (volumeChart) volumeChart.destroy();
+          initializeCharts(sampleData);
+        });
+    });
+  });
+  
+  // Initial setup
+  fetchInitialData();
+});
+</script>
+{% endblock %}

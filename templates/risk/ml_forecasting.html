@@ -1,0 +1,917 @@
+{% extends "base.html" %}
+
+{% block title %}ML Risk Forecasting{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<style>
+    .forecast-card {
+        transition: all 0.3s ease;
+    }
+    
+    .forecast-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .indicator.green {
+        background-color: #10b981;
+    }
+    
+    .indicator.amber {
+        background-color: #f59e0b;
+    }
+    
+    .indicator.red {
+        background-color: #ef4444;
+    }
+    
+    .regime-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 2rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .regime-bull {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+    
+    .regime-bear {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+    
+    .regime-correction {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+    
+    .regime-recovery {
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+    
+    .regime-highvol {
+        background-color: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+    }
+    
+    .setup-score {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    
+    .setup-score.high {
+        color: #10b981;
+    }
+    
+    .setup-score.medium {
+        color: #f59e0b;
+    }
+    
+    .setup-score.low {
+        color: #ef4444;
+    }
+    
+    .progress-thin {
+        height: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">ML Risk Forecasting</h1>
+        <div class="d-flex align-items-center">
+            <div class="me-3">
+                <span class="text-muted">Last updated:</span>
+                <span id="last-update-time">Loading...</span>
+            </div>
+            <button id="refresh-button" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Market Regime Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100 forecast-card">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="mb-0">Market Regime Forecast</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <div class="small text-muted mb-1">Current Market Regime:</div>
+                            <div class="h3 mb-1">
+                                <span id="regime-badge" class="regime-badge regime-bull">Bull Market</span>
+                            </div>
+                            <div id="regime-description" class="small text-muted">
+                                Strong uptrend with low volatility and positive breadth
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="small text-muted mb-1">Confidence:</div>
+                            <div class="display-5" id="regime-confidence">85%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="small text-muted mb-2">Regime Probabilities:</div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Bull Market</span>
+                                    <span id="prob-bull">75%</span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div id="prob-bull-bar" class="progress-bar bg-success" style="width: 75%"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Correction</span>
+                                    <span id="prob-correction">15%</span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div id="prob-correction-bar" class="progress-bar bg-warning" style="width: 15%"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Bear Market</span>
+                                    <span id="prob-bear">5%</span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div id="prob-bear-bar" class="progress-bar bg-danger" style="width: 5%"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Recovery</span>
+                                    <span id="prob-recovery">3%</span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div id="prob-recovery-bar" class="progress-bar bg-info" style="width: 3%"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>High Volatility</span>
+                                    <span id="prob-highvol">2%</span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div id="prob-highvol-bar" class="progress-bar bg-purple" style="width: 2%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-secondary mb-0">
+                        <div class="small fw-bold mb-1">Trading Implications:</div>
+                        <div id="regime-implications" class="small">
+                            Favorable conditions for long positions. Focus on quality growth stocks with momentum.
+                            Maintain normal position sizes with standard stop losses.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100 forecast-card">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="mb-0">Volatility Forecast</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light mb-3">
+                                <div class="card-body py-3">
+                                    <div class="small text-muted mb-1">1-Day Forecast:</div>
+                                    <div class="h3" id="volatility-1d">1.2%</div>
+                                    <div class="small">
+                                        <span id="volatility-1d-change" class="text-success">
+                                            <i class="fas fa-arrow-down me-1"></i>-0.2%
+                                        </span>
+                                        <span class="text-muted">vs current</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light mb-3">
+                                <div class="card-body py-3">
+                                    <div class="small text-muted mb-1">5-Day Forecast:</div>
+                                    <div class="h3" id="volatility-5d">1.5%</div>
+                                    <div class="small">
+                                        <span id="volatility-5d-change" class="text-danger">
+                                            <i class="fas fa-arrow-up me-1"></i>+0.3%
+                                        </span>
+                                        <span class="text-muted">vs current</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div id="volatility-chart" style="height: 200px;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-secondary mb-0">
+                        <div class="small fw-bold mb-1">Volatility Insights:</div>
+                        <div id="volatility-insights" class="small">
+                            Expected slight decrease in short-term volatility, with potential increase over the next week.
+                            Consider tighter stops for day trades, but maintain normal position sizing for swing trades.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trade Setup Evaluation -->
+    <div class="row g-4">
+        <div class="col-md-5">
+            <div class="card h-100 forecast-card">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="mb-0">Trade Setup Evaluator</h5>
+                </div>
+                <div class="card-body">
+                    <form id="setup-eval-form">
+                        <div class="mb-3">
+                            <label for="ticker-input" class="form-label">Symbol</label>
+                            <input type="text" class="form-control" id="ticker-input" placeholder="e.g., AAPL" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Direction</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="direction" id="direction-long" value="long" checked>
+                                <label class="btn btn-outline-success" for="direction-long">Long</label>
+                                
+                                <input type="radio" class="btn-check" name="direction" id="direction-short" value="short">
+                                <label class="btn btn-outline-danger" for="direction-short">Short</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Setup Type</label>
+                            <select class="form-select" id="setup-type">
+                                <option value="ema_cloud">EMA Cloud</option>
+                                <option value="fvg">Fair Value Gap (FVG)</option>
+                                <option value="order_block">Order Block</option>
+                                <option value="ema_fvg" selected>EMA + FVG</option>
+                                <option value="full_og">Full OG Setup (EMA + FVG + OB + Volume)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Timeframe</label>
+                            <select class="form-select" id="timeframe">
+                                <option value="5m">5 min</option>
+                                <option value="15m">15 min</option>
+                                <option value="1h" selected>1 hour</option>
+                                <option value="4h">4 hour</option>
+                                <option value="1d">Daily</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            Evaluate Setup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div class="card h-100 forecast-card" id="results-card" style="display: none;">
+                <div class="card-header bg-primary text-white py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0" id="results-title">Setup Evaluation Results</h5>
+                        <span id="results-ticker" class="badge bg-light text-dark">AAPL</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-5 text-center">
+                            <div class="mb-2 small text-muted">Win Probability:</div>
+                            <div id="win-probability" class="setup-score medium">68%</div>
+                            <div id="recommendation-badge" class="badge bg-warning mt-2">MEDIUM CONFIDENCE</div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small">Expected Profit:</span>
+                                    <span id="expected-profit" class="small text-success">+3.2%</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small">Expected Loss:</span>
+                                    <span id="expected-loss" class="small text-danger">-1.5%</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small">Risk/Reward Ratio:</span>
+                                    <span id="risk-reward" class="small">2.1</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small">Expected Value:</span>
+                                    <span id="expected-value" class="small text-success">+1.6%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-secondary small py-2">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <span id="setup-recommendation">This setup has an acceptable win probability with a favorable risk-reward ratio.</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>OG Strategy Analysis</h6>
+                            <ul class="small" id="og-analysis">
+                                <li>EMA Cloud: <span class="text-success">Confirmed</span></li>
+                                <li>FVG: <span class="text-success">Present</span></li>
+                                <li>Order Block: <span class="text-danger">Not Detected</span></li>
+                                <li>Volume: <span class="text-success">Confirming</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Market Context</h6>
+                            <ul class="small" id="market-context">
+                                <li>Current Regime: <span>Bull Market</span></li>
+                                <li>Sector Trend: <span class="text-success">Strong</span></li>
+                                <li>Volatility Trend: <span class="text-success">Decreasing</span></li>
+                                <li>Correlation: <span>Moderate (0.65)</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-sm btn-outline-secondary" id="recalculate-btn">
+                            <i class="fas fa-redo me-1"></i> Recalculate
+                        </button>
+                        
+                        <div>
+                            <button class="btn btn-sm btn-success me-2" id="trade-btn">
+                                <i class="fas fa-check me-1"></i> Take Trade
+                            </button>
+                            <button class="btn btn-sm btn-danger" id="skip-btn">
+                                <i class="fas fa-times me-1"></i> Skip
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card h-100 forecast-card" id="placeholder-card">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                        <h4>ML Trade Setup Evaluator</h4>
+                        <p class="text-muted">Enter a symbol and setup details to get an AI-powered evaluation</p>
+                    </div>
+                    
+                    <div class="alert alert-info w-100">
+                        <i class="fas fa-info-circle me-2"></i>
+                        The evaluator combines OG Strategy pattern recognition with machine learning to assess trade setups
+                    </div>
+                    
+                    <div class="small text-muted mt-3">
+                        <ul>
+                            <li>Win probability based on historical pattern performance</li>
+                            <li>Risk/reward calculation considering market regime</li>
+                            <li>Volatility-adjusted position sizing recommendations</li>
+                            <li>Market context analysis for better decision making</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let volatilityChart = null;
+let currentRegime = null;
+let currentVolatility = null;
+
+// Initialize everything when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Load initial data
+    refreshData();
+    
+    // Set up refresh button
+    document.getElementById('refresh-button').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Refreshing...';
+        
+        refreshData().finally(() => {
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fa fa-sync-alt me-1"></i> Refresh';
+            }, 500);
+        });
+    });
+    
+    // Set up setup evaluation form
+    document.getElementById('setup-eval-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        evaluateSetup();
+    });
+    
+    // Set up result card buttons
+    document.getElementById('recalculate-btn').addEventListener('click', function() {
+        evaluateSetup();
+    });
+    
+    document.getElementById('trade-btn').addEventListener('click', function() {
+        alert('Trade recorded! This would normally save the trade to your journal and execute if configured.');
+        hideResults();
+    });
+    
+    document.getElementById('skip-btn').addEventListener('click', function() {
+        hideResults();
+    });
+});
+
+// Initialize charts
+function initializeCharts() {
+    // Volatility forecast chart
+    const volatilityOptions = {
+        series: [{
+            name: 'Volatility',
+            data: []
+        }],
+        chart: {
+            type: 'line',
+            height: 200,
+            toolbar: {
+                show: false
+            },
+            zoom: {
+                enabled: false
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        colors: ['#8b5cf6'],
+        markers: {
+            size: 5
+        },
+        xaxis: {
+            categories: ['Past', 'Current', '1 Day', '5 Day'],
+            labels: {
+                style: {
+                    fontFamily: 'inherit'
+                }
+            }
+        },
+        yaxis: {
+            labels: {
+                formatter: function(val) {
+                    return val.toFixed(1) + '%';
+                },
+                style: {
+                    fontFamily: 'inherit'
+                }
+            }
+        },
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return val.toFixed(2) + '%';
+                }
+            }
+        }
+    };
+    
+    volatilityChart = new ApexCharts(document.querySelector("#volatility-chart"), volatilityOptions);
+    volatilityChart.render();
+}
+
+// Refresh all data
+async function refreshData() {
+    try {
+        // Get market regime prediction
+        const regimeResponse = await fetch('/risk/api/ml/market_regime');
+        if (!regimeResponse.ok) throw new Error('Failed to fetch market regime data');
+        const regimeData = await regimeResponse.json();
+        
+        // Get volatility forecast for SPY
+        const volatilityResponse = await fetch('/risk/api/ml/volatility/SPY');
+        if (!volatilityResponse.ok) throw new Error('Failed to fetch volatility data');
+        const volatilityData = await volatilityResponse.json();
+        
+        // Update UI with data
+        updateRegimeUI(regimeData.data);
+        updateVolatilityUI(volatilityData.data);
+        
+        // Store current values for later reference
+        currentRegime = regimeData.data;
+        currentVolatility = volatilityData.data;
+        
+        // Update timestamp
+        document.getElementById('last-update-time').textContent = new Date().toLocaleTimeString();
+        
+        return true;
+    } catch (error) {
+        console.error('Error refreshing data:', error);
+        return false;
+    }
+}
+
+// Update regime UI
+function updateRegimeUI(data) {
+    if (!data) return;
+    
+    // Update regime badge
+    const regimeBadge = document.getElementById('regime-badge');
+    regimeBadge.textContent = formatRegimeName(data.regime);
+    regimeBadge.className = `regime-badge regime-${data.regime.replace('_', '')}`;
+    
+    // Update regime description
+    document.getElementById('regime-description').textContent = data.description;
+    
+    // Update confidence
+    document.getElementById('regime-confidence').textContent = (data.confidence * 100).toFixed(0) + '%';
+    
+    // Update probabilities
+    updateProbabilityBar('bull', data.probabilities?.bull_market || 0);
+    updateProbabilityBar('correction', data.probabilities?.correction || 0);
+    updateProbabilityBar('bear', data.probabilities?.bear_market || 0);
+    updateProbabilityBar('recovery', data.probabilities?.recovery || 0);
+    updateProbabilityBar('highvol', data.probabilities?.high_vol || 0);
+    
+    // Update implications
+    document.getElementById('regime-implications').textContent = getRegimeImplications(data.regime);
+}
+
+// Update volatility UI
+function updateVolatilityUI(data) {
+    if (!data) return;
+    
+    // Update volatility metrics
+    const vol1d = data.volatility_1d * 100;
+    const vol5d = data.volatility_5d * 100;
+    const currentVol = vol1d * 0.9; // For demo - in real implementation would use current volatility
+    
+    document.getElementById('volatility-1d').textContent = vol1d.toFixed(1) + '%';
+    document.getElementById('volatility-5d').textContent = vol5d.toFixed(1) + '%';
+    
+    // Calculate changes
+    const change1d = vol1d - currentVol;
+    const change5d = vol5d - currentVol;
+    
+    // Update change indicators
+    updateVolatilityChange('volatility-1d-change', change1d);
+    updateVolatilityChange('volatility-5d-change', change5d);
+    
+    // Update chart
+    volatilityChart.updateOptions({
+        series: [{
+            name: 'Volatility',
+            data: [currentVol * 0.9, currentVol, vol1d, vol5d]
+        }]
+    });
+    
+    // Update insights
+    document.getElementById('volatility-insights').textContent = getVolatilityInsights(vol1d, vol5d, change1d, change5d);
+}
+
+// Update a volatility change indicator
+function updateVolatilityChange(elementId, change) {
+    const element = document.getElementById(elementId);
+    
+    if (change > 0) {
+        element.className = 'text-danger';
+        element.innerHTML = `<i class="fas fa-arrow-up me-1"></i>+${change.toFixed(1)}%`;
+    } else {
+        element.className = 'text-success';
+        element.innerHTML = `<i class="fas fa-arrow-down me-1"></i>${change.toFixed(1)}%`;
+    }
+}
+
+// Update a probability bar
+function updateProbabilityBar(regime, probability) {
+    const percentage = (probability * 100).toFixed(0);
+    document.getElementById(`prob-${regime}`).textContent = `${percentage}%`;
+    document.getElementById(`prob-${regime}-bar`).style.width = `${percentage}%`;
+}
+
+// Evaluate trade setup
+async function evaluateSetup() {
+    // Get form values
+    const ticker = document.getElementById('ticker-input').value.toUpperCase();
+    const direction = document.querySelector('input[name="direction"]:checked').value;
+    const setupType = document.getElementById('setup-type').value;
+    const timeframe = document.getElementById('timeframe').value;
+    
+    // Validate
+    if (!ticker) {
+        alert('Please enter a ticker symbol');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#setup-eval-form button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Evaluating...';
+    
+    try {
+        // In a real implementation, this would call the API
+        // For now, simulate a network delay and return sample data
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Sample data based on inputs
+        const setupData = generateSampleSetupData(ticker, direction, setupType, timeframe);
+        
+        // Update UI with results
+        updateSetupResults(setupData);
+        
+        // Show results card, hide placeholder
+        document.getElementById('results-card').style.display = 'block';
+        document.getElementById('placeholder-card').style.display = 'none';
+    } catch (error) {
+        console.error('Error evaluating setup:', error);
+        alert('Failed to evaluate setup. Please try again.');
+    } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+// Update setup evaluation results
+function updateSetupResults(data) {
+    if (!data) return;
+    
+    // Update title and ticker
+    document.getElementById('results-ticker').textContent = data.symbol;
+    
+    // Update win probability
+    const winProbEl = document.getElementById('win-probability');
+    const winProb = (data.win_probability * 100).toFixed(0);
+    winProbEl.textContent = `${winProb}%`;
+    
+    // Set color based on probability
+    if (data.win_probability >= 0.7) {
+        winProbEl.className = 'setup-score high';
+    } else if (data.win_probability >= 0.55) {
+        winProbEl.className = 'setup-score medium';
+    } else {
+        winProbEl.className = 'setup-score low';
+    }
+    
+    // Update recommendation badge
+    const recBadge = document.getElementById('recommendation-badge');
+    if (data.confidence === 'high') {
+        recBadge.className = 'badge bg-success mt-2';
+        recBadge.textContent = 'HIGH CONFIDENCE';
+    } else if (data.confidence === 'medium') {
+        recBadge.className = 'badge bg-warning mt-2';
+        recBadge.textContent = 'MEDIUM CONFIDENCE';
+    } else {
+        recBadge.className = 'badge bg-danger mt-2';
+        recBadge.textContent = 'LOW CONFIDENCE';
+    }
+    
+    // Update metrics
+    document.getElementById('expected-profit').textContent = `+${(data.expected_profit_pct * 100).toFixed(1)}%`;
+    document.getElementById('expected-loss').textContent = `-${(data.expected_loss_pct * 100).toFixed(1)}%`;
+    document.getElementById('risk-reward').textContent = data.risk_reward_ratio.toFixed(1);
+    
+    const expectedValue = (data.expected_value * 100).toFixed(1);
+    const evElement = document.getElementById('expected-value');
+    if (data.expected_value > 0) {
+        evElement.className = 'small text-success';
+        evElement.textContent = `+${expectedValue}%`;
+    } else {
+        evElement.className = 'small text-danger';
+        evElement.textContent = `${expectedValue}%`;
+    }
+    
+    // Update recommendation text
+    document.getElementById('setup-recommendation').textContent = getSetupRecommendation(data);
+    
+    // Update OG analysis
+    updateSetupAnalysis(data);
+}
+
+// Update the setup analysis section
+function updateSetupAnalysis(data) {
+    const ogAnalysis = document.getElementById('og-analysis');
+    const marketContext = document.getElementById('market-context');
+    
+    // In a real implementation, this would use the actual data from the API
+    // For demonstration, we'll use sample data
+    
+    // Update OG analysis
+    ogAnalysis.innerHTML = `
+        <li>EMA Cloud: <span class="${data.ema_cloud ? 'text-success' : 'text-danger'}">${data.ema_cloud ? 'Confirmed' : 'Not Confirmed'}</span></li>
+        <li>FVG: <span class="${data.fvg ? 'text-success' : 'text-danger'}">${data.fvg ? 'Present' : 'Not Detected'}</span></li>
+        <li>Order Block: <span class="${data.order_block ? 'text-success' : 'text-danger'}">${data.order_block ? 'Present' : 'Not Detected'}</span></li>
+        <li>Volume: <span class="${data.volume ? 'text-success' : 'text-danger'}">${data.volume ? 'Confirming' : 'Not Confirming'}</span></li>
+    `;
+    
+    // Update market context
+    marketContext.innerHTML = `
+        <li>Current Regime: <span>${formatRegimeName(data.market_regime)}</span></li>
+        <li>Sector Trend: <span class="${data.sector_trend > 0 ? 'text-success' : 'text-danger'}">${data.sector_trend > 0 ? 'Strong' : 'Weak'}</span></li>
+        <li>Volatility Trend: <span class="${data.volatility_trend < 0 ? 'text-success' : 'text-danger'}">${data.volatility_trend < 0 ? 'Decreasing' : 'Increasing'}</span></li>
+        <li>Correlation: <span>${formatCorrelation(data.correlation)}</span></li>
+    `;
+}
+
+// Hide results card and show placeholder
+function hideResults() {
+    document.getElementById('results-card').style.display = 'none';
+    document.getElementById('placeholder-card').style.display = 'block';
+    document.getElementById('setup-eval-form').reset();
+}
+
+// Helpers
+
+// Format regime name for display
+function formatRegimeName(regime) {
+    if (!regime) return 'Unknown';
+    
+    const formatted = regime.replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    
+    return formatted;
+}
+
+// Get trading implications for a regime
+function getRegimeImplications(regime) {
+    const implications = {
+        'bull_market': 'Favorable conditions for long positions. Focus on quality growth stocks with momentum. Maintain normal position sizes with standard stop losses.',
+        'correction': 'Short-term pullback in bullish trend. Reduce position sizes by 25-50% and tighten stops. Favor short-term mean reversion trades.',
+        'bear_market': 'Challenging conditions for long positions. Focus on defensive sectors, reduce position sizes by 50-75%, and use tighter stops. Consider short positions in weak stocks.',
+        'recovery': 'Early-stage uptrend after major decline. Focus on quality stocks showing relative strength. Gradually increase position sizes as trend confirms.',
+        'high_vol': 'Highly volatile market conditions. Reduce position sizes by 50%, tighten stops, and expect larger price swings. Consider shorter holding periods.'
+    };
+    
+    return implications[regime] || 'Monitor market conditions and adjust position sizing accordingly.';
+}
+
+// Get volatility insights
+function getVolatilityInsights(vol1d, vol5d, change1d, change5d) {
+    let trend = '';
+    if (change1d < 0 && change5d < 0) {
+        trend = 'decreasing short and medium-term';
+    } else if (change1d < 0 && change5d >= 0) {
+        trend = 'decreasing short-term but potentially increasing over the next week';
+    } else if (change1d >= 0 && change5d < 0) {
+        trend = 'increasing short-term but potentially decreasing over the next week';
+    } else {
+        trend = 'increasing short and medium-term';
+    }
+    
+    let sizing = '';
+    if (vol1d < 1.0 && vol5d < 1.2) {
+        sizing = 'Consider normal position sizes with standard stop losses.';
+    } else if (vol1d < 1.5 && vol5d < 1.8) {
+        sizing = 'Consider slightly tighter stops but maintain normal position sizing.';
+    } else if (vol1d < 2.0 && vol5d < 2.5) {
+        sizing = 'Consider reducing position sizes by 25% and using tighter stops.';
+    } else {
+        sizing = 'Consider reducing position sizes by 50% and using tight stops to manage risk.';
+    }
+    
+    return `Expected ${trend} volatility. ${sizing}`;
+}
+
+// Get setup recommendation text
+function getSetupRecommendation(data) {
+    if (data.win_probability >= 0.7 && data.risk_reward_ratio >= 2.0) {
+        return 'High-quality setup with strong win probability and favorable risk-reward ratio. Consider taking this trade with normal position size.';
+    } else if (data.win_probability >= 0.6 && data.risk_reward_ratio >= 1.5) {
+        return 'This setup has an acceptable win probability with a favorable risk-reward ratio. Consider a moderate position size.';
+    } else if (data.win_probability >= 0.55 && data.risk_reward_ratio >= 1.2) {
+        return 'This setup has a marginal win probability. If taken, consider reducing position size by 50%.';
+    } else {
+        return 'This setup has a low probability of success or unfavorable risk-reward. Consider skipping this trade.';
+    }
+}
+
+// Format correlation description
+function formatCorrelation(value) {
+    if (value >= 0.8) return 'Strong ('+value.toFixed(2)+')';
+    if (value >= 0.5) return 'Moderate ('+value.toFixed(2)+')';
+    if (value >= 0.2) return 'Weak ('+value.toFixed(2)+')';
+    if (value >= -0.2) return 'Neutral ('+value.toFixed(2)+')';
+    if (value >= -0.5) return 'Weak Negative ('+value.toFixed(2)+')';
+    if (value >= -0.8) return 'Moderate Negative ('+value.toFixed(2)+')';
+    return 'Strong Negative ('+value.toFixed(2)+')';
+}
+
+// Generate sample setup data for demo
+function generateSampleSetupData(ticker, direction, setupType, timeframe) {
+    // In a real implementation, this would call the API
+    
+    // Base win probability on setup type
+    let baseProb = 0;
+    if (setupType === 'full_og') {
+        baseProb = 0.75;
+    } else if (setupType === 'ema_fvg') {
+        baseProb = 0.65;
+    } else if (setupType === 'ema_cloud') {
+        baseProb = 0.58;
+    } else if (setupType === 'fvg' || setupType === 'order_block') {
+        baseProb = 0.60;
+    }
+    
+    // Adjust for timeframe
+    if (timeframe === '1d') {
+        baseProb += 0.05;
+    } else if (timeframe === '4h') {
+        baseProb += 0.03;
+    } else if (timeframe === '5m') {
+        baseProb -= 0.08;
+    }
+    
+    // Ensure probability is in valid range
+    const winProbability = Math.max(0.3, Math.min(0.9, baseProb));
+    
+    // Set confidence level
+    let confidence = 'low';
+    if (winProbability >= 0.7) {
+        confidence = 'high';
+    } else if (winProbability >= 0.55) {
+        confidence = 'medium';
+    }
+    
+    // Determine which OG components are present
+    const hasEmaCloud = setupType.includes('ema');
+    const hasFvg = setupType.includes('fvg');
+    const hasOrderBlock = setupType.includes('order_block') || setupType === 'full_og';
+    const hasVolume = setupType === 'full_og';
+    
+    // Set risk-reward based on setup
+    const riskReward = hasOrderBlock ? 2.5 : (hasEmaCloud && hasFvg ? 2.1 : 1.7);
+    
+    // Expected profit/loss percentages
+    const expectedProfitPct = riskReward * 0.015;
+    const expectedLossPct = 0.015;
+    
+    // Expected value calculation
+    const expectedValue = (winProbability * expectedProfitPct) - ((1 - winProbability) * expectedLossPct);
+    
+    // Use current market regime if available
+    const marketRegime = currentRegime?.regime || 'bull_market';
+    
+    // Generate random sector trend and volatility trend
+    const sectorTrend = Math.random() > 0.3 ? 0.5 : -0.2;
+    const volatilityTrend = Math.random() > 0.5 ? 0.3 : -0.2;
+    
+    return {
+        symbol: ticker,
+        direction: direction,
+        win_probability: winProbability,
+        expected_profit_pct: expectedProfitPct,
+        expected_loss_pct: expectedLossPct,
+        risk_reward_ratio: riskReward,
+        expected_value: expectedValue,
+        confidence: confidence,
+        trade_recommendation: winProbability > 0.6 && riskReward > 1.5 ? "yes" : "no",
+        ema_cloud: hasEmaCloud,
+        fvg: hasFvg,
+        order_block: hasOrderBlock,
+        volume: hasVolume,
+        market_regime: marketRegime,
+        sector_trend: sectorTrend,
+        volatility_trend: volatilityTrend,
+        correlation: 0.65
+    };
+}
+</script>
+{% endblock %}

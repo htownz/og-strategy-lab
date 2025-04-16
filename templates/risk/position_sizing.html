@@ -1,0 +1,623 @@
+{% extends "base.html" %}
+
+{% block title %}Position Size Calculator{% endblock %}
+
+{% block head %}
+<style>
+    .confidence-value {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    
+    .result-card {
+        transition: all 0.3s ease;
+    }
+    
+    .result-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .simulation-table {
+        font-size: 0.875rem;
+    }
+    
+    .text-kelly {
+        color: #8338ec;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Position Size Calculator</h1>
+            <p class="text-muted">
+                Determine optimal position size based on strategy confidence, market conditions, and risk management rules
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button id="refresh-button" class="btn btn-outline-primary mt-2">
+                <i class="fa fa-sync-alt me-1"></i> Refresh Market Data
+            </button>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Calculator Form -->
+        <div class="col-md-5">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Position Parameters</h5>
+                </div>
+                <div class="card-body">
+                    <form id="position-size-calculator">
+                        <div class="mb-3">
+                            <label for="symbol-input" class="form-label">Symbol</label>
+                            <input type="text" class="form-control" id="symbol-input" placeholder="e.g., AAPL" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confidence-input" class="form-label">Signal Confidence (0-1)</label>
+                            <input type="range" class="form-range" id="confidence-range" min="0.1" max="1" step="0.05" value="0.7">
+                            <div class="text-center confidence-value" id="confidence-display">0.7</div>
+                            <input type="hidden" id="confidence-input" name="confidence" value="0.7">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="strategy-select" class="form-label">Strategy Type</label>
+                            <select class="form-select" id="strategy-select">
+                                <option value="og_strategy" selected>OG Strategy</option>
+                                <option value="swing">Swing Trade</option>
+                                <option value="day_trade">Day Trade</option>
+                                <option value="momentum">Momentum</option>
+                                <option value="mean_reversion">Mean Reversion</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="direction-select" class="form-label">Trade Direction</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="direction" id="direction-long" value="long" checked>
+                                <label class="btn btn-outline-success" for="direction-long">Long</label>
+                                
+                                <input type="radio" class="btn-check" name="direction" id="direction-short" value="short">
+                                <label class="btn btn-outline-danger" for="direction-short">Short</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Calculate Optimal Position Size</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results -->
+        <div class="col-md-7">
+            <div id="position-size-results" style="display: none;">
+                <!-- Results will be inserted here by JavaScript -->
+            </div>
+            
+            <div class="card h-100" id="initial-info-card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Position Sizing Information</h5>
+                </div>
+                <div class="card-body">
+                    <h5>How Position Sizing Works</h5>
+                    <p>
+                        The calculator uses several advanced methods to determine optimal position size:
+                    </p>
+                    <ul>
+                        <li><strong>Kelly Criterion:</strong> Mathematical formula that maximizes the logarithm of wealth</li>
+                        <li><strong>Confidence-Weighted:</strong> Scales position size based on signal confidence</li>
+                        <li><strong>Risk-Aware:</strong> Considers current market regime and volatility</li>
+                        <li><strong>Portfolio-Aware:</strong> Accounts for existing positions and sector exposure</li>
+                    </ul>
+                    
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle me-2"></i>
+                        Enter a symbol and confidence level to calculate the optimal position size based on your current portfolio and market conditions.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Risk Metrics -->
+    <div class="row mt-4 g-4">
+        <div class="col-md-4">
+            <div class="card h-100 result-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Current Portfolio Risk</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <div class="small text-muted">Portfolio Value</div>
+                            <div class="h5" id="portfolio-value">$0</div>
+                        </div>
+                        <div>
+                            <div class="small text-muted">VaR (95%)</div>
+                            <div class="h5" id="portfolio-var">0.00%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="small">Risk Utilization</span>
+                            <span class="small" id="risk-util-percent">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar" id="risk-util-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted">Largest Position</td>
+                                <td class="text-end" id="largest-position">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Largest Sector</td>
+                                <td class="text-end" id="largest-sector">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Risk Concentration</td>
+                                <td class="text-end" id="risk-concentration">--</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 result-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Market Conditions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <div class="small text-muted">Market Regime</div>
+                            <div class="h5" id="market-regime">Neutral</div>
+                        </div>
+                        <div>
+                            <div class="small text-muted">Volatility (VIX)</div>
+                            <div class="h5" id="market-vix">--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="small">Risk Appetite</span>
+                            <span class="small" id="risk-appetite-value">Neutral</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" id="risk-appetite-bar" role="progressbar" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted">Market Trend</td>
+                                <td class="text-end" id="market-trend">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Market Liquidity</td>
+                                <td class="text-end" id="market-liquidity">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Signal Alignment</td>
+                                <td class="text-end" id="signal-alignment">--</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 result-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Simulation Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm simulation-table">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Position Size</th>
+                                    <th>% of Portfolio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="simulation-table-body">
+                                <tr>
+                                    <td><span class="text-kelly">Kelly Criterion</span></td>
+                                    <td id="kelly-size">--</td>
+                                    <td id="kelly-percent">--</td>
+                                </tr>
+                                <tr>
+                                    <td>Half Kelly</td>
+                                    <td id="half-kelly-size">--</td>
+                                    <td id="half-kelly-percent">--</td>
+                                </tr>
+                                <tr>
+                                    <td>Fixed Percentage</td>
+                                    <td id="fixed-size">--</td>
+                                    <td id="fixed-percent">--</td>
+                                </tr>
+                                <tr>
+                                    <td>Volatility-Adjusted</td>
+                                    <td id="vol-size">--</td>
+                                    <td id="vol-percent">--</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Recommended</td>
+                                    <td class="fw-bold" id="recommended-size">--</td>
+                                    <td class="fw-bold" id="recommended-percent">--</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-secondary mt-3 small">
+                        <i class="fa fa-info-circle me-2"></i>
+                        Recommendation uses a composite model that balances multiple risk factors for optimal trade sizing.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up confidence slider
+    const confidenceRange = document.getElementById('confidence-range');
+    const confidenceDisplay = document.getElementById('confidence-display');
+    const confidenceInput = document.getElementById('confidence-input');
+    
+    confidenceRange.addEventListener('input', function() {
+        const value = this.value;
+        confidenceDisplay.textContent = value;
+        confidenceInput.value = value;
+        
+        // Update color based on confidence level
+        if (value < 0.4) {
+            confidenceDisplay.style.color = '#ef4444';  // Low confidence - red
+        } else if (value < 0.7) {
+            confidenceDisplay.style.color = '#f59e0b';  // Medium confidence - amber
+        } else {
+            confidenceDisplay.style.color = '#10b981';  // High confidence - green
+        }
+    });
+    
+    // Position size calculator form
+    const calculatorForm = document.getElementById('position-size-calculator');
+    const initialInfoCard = document.getElementById('initial-info-card');
+    const resultsContainer = document.getElementById('position-size-results');
+    
+    calculatorForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const symbol = document.getElementById('symbol-input').value.trim().toUpperCase();
+        const confidence = parseFloat(document.getElementById('confidence-input').value);
+        const strategy = document.getElementById('strategy-select').value;
+        const direction = document.querySelector('input[name="direction"]:checked').value;
+        
+        if (!symbol) {
+            showError('Please enter a valid symbol');
+            return;
+        }
+        
+        // Show loading state
+        const submitButton = calculatorForm.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Calculating...';
+        
+        try {
+            // Call the API
+            const response = await fetch(`/risk/api/position_size?symbol=${symbol}&confidence=${confidence}&strategy=${strategy}&direction=${direction}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to calculate position size');
+            }
+            
+            // Hide the initial info card and show results
+            initialInfoCard.style.display = 'none';
+            
+            // Update results
+            updatePositionSizeResults(data.data, symbol, confidence, strategy, direction);
+            
+            // Show results container
+            resultsContainer.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error calculating position size:', error);
+            showError(`Failed to calculate position size: ${error.message}`);
+        } finally {
+            // Restore button state
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+        }
+    });
+    
+    // Refresh button
+    const refreshButton = document.getElementById('refresh-button');
+    
+    refreshButton.addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Refreshing...';
+        
+        // Simulate refresh - in production, this would hit an API endpoint
+        setTimeout(() => {
+            updateMarketData();
+            this.disabled = false;
+            this.innerHTML = '<i class="fa fa-sync-alt me-1"></i> Refresh Market Data';
+        }, 1000);
+    });
+    
+    // Load initial data
+    loadInitialData();
+});
+
+// Show error message
+function showError(message) {
+    // Create error alert if it doesn't exist
+    let errorAlert = document.getElementById('error-alert');
+    
+    if (!errorAlert) {
+        errorAlert = document.createElement('div');
+        errorAlert.id = 'error-alert';
+        errorAlert.className = 'alert alert-danger alert-dismissible fade show mb-3';
+        errorAlert.innerHTML = `
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div id="error-message"></div>
+        `;
+        
+        const form = document.getElementById('position-size-calculator');
+        form.parentNode.insertBefore(errorAlert, form);
+    }
+    
+    // Set error message
+    document.getElementById('error-message').textContent = message;
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        if (errorAlert.parentNode) {
+            errorAlert.parentNode.removeChild(errorAlert);
+        }
+    }, 5000);
+}
+
+// Update position size results
+function updatePositionSizeResults(data, symbol, confidence, strategy, direction) {
+    const resultsContainer = document.getElementById('position-size-results');
+    
+    // Format values
+    const recommendedSize = formatCurrency(data.recommended_size);
+    const recommendedPercent = formatPercent(data.recommended_size / data.portfolio_value);
+    
+    const directionClass = direction === 'long' ? 'text-success' : 'text-danger';
+    const directionIcon = direction === 'long' ? 'fa-arrow-up' : 'fa-arrow-down';
+    
+    // Create results card
+    resultsContainer.innerHTML = `
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    Position Size Recommendation for ${symbol}
+                    <span class="badge bg-light text-dark float-end">${data.sector}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="display-4 me-3">${recommendedSize}</div>
+                            <div>
+                                <div class="badge ${directionClass}">
+                                    <i class="fas ${directionIcon} me-1"></i>
+                                    ${direction.toUpperCase()}
+                                </div>
+                                <div class="text-muted mt-1">
+                                    ${recommendedPercent} of portfolio
+                                </div>
+                            </div>
+                        </div>
+                        <p>${data.reason}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td class="text-muted">Confidence Level</td>
+                                    <td>${formatPercent(confidence)}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Strategy</td>
+                                    <td>${formatStrategyName(strategy)}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Win Rate (Est.)</td>
+                                    <td>${formatPercent(data.win_rate)}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Risk-Reward Ratio</td>
+                                    <td>${formatNumber(data.risk_reward_ratio, 1)}x</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Maximum Position</td>
+                                    <td>${formatCurrency(data.max_size)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Update simulation data
+    updateSimulationTable(data);
+}
+
+// Update simulation table
+function updateSimulationTable(data) {
+    const portfolioValue = data.portfolio_value || 100000;
+    
+    // Calculate different position sizing methods
+    const kellySize = data.kelly_percentage * portfolioValue;
+    document.getElementById('kelly-size').textContent = formatCurrency(kellySize);
+    document.getElementById('kelly-percent').textContent = formatPercent(kellySize / portfolioValue);
+    
+    const halfKellySize = (data.kelly_percentage * 0.5) * portfolioValue;
+    document.getElementById('half-kelly-size').textContent = formatCurrency(halfKellySize);
+    document.getElementById('half-kelly-percent').textContent = formatPercent(halfKellySize / portfolioValue);
+    
+    const fixedSize = 0.05 * portfolioValue; // 5% fixed allocation
+    document.getElementById('fixed-size').textContent = formatCurrency(fixedSize);
+    document.getElementById('fixed-percent').textContent = formatPercent(fixedSize / portfolioValue);
+    
+    // Volatility-adjusted uses 15% / asset volatility
+    const volAdjSize = (0.15 / (data.volatility || 0.25)) * portfolioValue;
+    document.getElementById('vol-size').textContent = formatCurrency(volAdjSize);
+    document.getElementById('vol-percent').textContent = formatPercent(volAdjSize / portfolioValue);
+    
+    // Recommended is already calculated by the backend
+    document.getElementById('recommended-size').textContent = formatCurrency(data.recommended_size);
+    document.getElementById('recommended-percent').textContent = formatPercent(data.recommended_size / portfolioValue);
+}
+
+// Load initial portfolio and market data
+function loadInitialData() {
+    // This would fetch from API in production
+    // For now, just update with sample data
+    updatePortfolioData({
+        portfolio_value: 100000,
+        portfolio_var: 0.032,
+        risk_utilization: 0.64,
+        largest_position: { symbol: 'AAPL', allocation: 0.14 },
+        largest_sector: { name: 'Technology', allocation: 0.38 },
+        risk_concentration: 0.45
+    });
+    
+    updateMarketData({
+        market_regime: 'Bullish',
+        vix: 15.2,
+        risk_appetite: 0.32,
+        market_trend: 'Uptrend',
+        market_liquidity: 'Good',
+        signal_alignment: 'Moderate'
+    });
+}
+
+// Update portfolio data display
+function updatePortfolioData(data) {
+    document.getElementById('portfolio-value').textContent = formatCurrency(data.portfolio_value);
+    document.getElementById('portfolio-var').textContent = formatPercent(data.portfolio_var);
+    
+    // Risk utilization bar
+    const riskUtilPercent = document.getElementById('risk-util-percent');
+    const riskUtilBar = document.getElementById('risk-util-bar');
+    const riskUtilPct = data.risk_utilization * 100;
+    
+    riskUtilPercent.textContent = `${Math.round(riskUtilPct)}%`;
+    riskUtilBar.style.width = `${riskUtilPct}%`;
+    
+    if (data.risk_utilization < 0.5) {
+        riskUtilBar.className = 'progress-bar bg-success';
+    } else if (data.risk_utilization < 0.8) {
+        riskUtilBar.className = 'progress-bar bg-warning';
+    } else {
+        riskUtilBar.className = 'progress-bar bg-danger';
+    }
+    
+    // Other metrics
+    document.getElementById('largest-position').textContent = 
+        `${data.largest_position.symbol} (${formatPercent(data.largest_position.allocation)})`;
+    
+    document.getElementById('largest-sector').textContent = 
+        `${data.largest_sector.name} (${formatPercent(data.largest_sector.allocation)})`;
+    
+    document.getElementById('risk-concentration').textContent = formatNumber(data.risk_concentration, 2);
+}
+
+// Update market data display
+function updateMarketData(data) {
+    document.getElementById('market-regime').textContent = data.market_regime;
+    document.getElementById('market-vix').textContent = formatNumber(data.vix, 1);
+    
+    // Risk appetite
+    const riskAppetiteValue = document.getElementById('risk-appetite-value');
+    const riskAppetiteBar = document.getElementById('risk-appetite-bar');
+    
+    riskAppetiteValue.textContent = formatRiskAppetite(data.risk_appetite);
+    
+    // Convert -1 to 1 scale to 0-100% for progress bar
+    const riskAppetitePct = ((data.risk_appetite + 1) / 2) * 100;
+    riskAppetiteBar.style.width = `${riskAppetitePct}%`;
+    
+    if (data.risk_appetite < -0.3) {
+        riskAppetiteBar.className = 'progress-bar bg-danger';
+    } else if (data.risk_appetite < 0.3) {
+        riskAppetiteBar.className = 'progress-bar bg-info';
+    } else {
+        riskAppetiteBar.className = 'progress-bar bg-success';
+    }
+    
+    // Other metrics
+    document.getElementById('market-trend').textContent = data.market_trend;
+    document.getElementById('market-liquidity').textContent = data.market_liquidity;
+    document.getElementById('signal-alignment').textContent = data.signal_alignment;
+}
+
+// Format utilities
+function formatCurrency(value) {
+    return '$' + parseFloat(value).toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
+}
+
+function formatPercent(value) {
+    return (value * 100).toFixed(1) + '%';
+}
+
+function formatNumber(value, decimals = 2) {
+    return parseFloat(value).toFixed(decimals);
+}
+
+function formatStrategyName(strategyCode) {
+    const strategyMap = {
+        'og_strategy': 'OG Strategy',
+        'swing': 'Swing Trade',
+        'day_trade': 'Day Trade',
+        'momentum': 'Momentum',
+        'mean_reversion': 'Mean Reversion'
+    };
+    
+    return strategyMap[strategyCode] || strategyCode;
+}
+
+function formatRiskAppetite(value) {
+    if (value < -0.6) return 'Strong Risk-Off';
+    if (value < -0.3) return 'Risk-Off';
+    if (value < 0.3) return 'Neutral';
+    if (value < 0.6) return 'Risk-On';
+    return 'Strong Risk-On';
+}
+</script>
+{% endblock %}

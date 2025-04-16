@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | Coaching Sessions{% endblock %}
+
+{% block head %}
+<style>
+    .session-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .session-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .session-card.active {
+        border-left-color: var(--accent-color);
+    }
+    
+    .session-card.completed {
+        border-left-color: var(--success-color);
+    }
+    
+    .session-card.archived {
+        border-left-color: var(--text-secondary);
+        opacity: 0.7;
+    }
+    
+    .session-card .card-body {
+        padding: 20px;
+    }
+    
+    .topic-badge {
+        background-color: rgba(79, 70, 229, 0.1);
+        color: var(--accent-color);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    
+    .message-preview {
+        background-color: rgba(31, 41, 55, 0.4);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+        font-style: italic;
+        color: var(--text-secondary);
+    }
+    
+    .action-items-count {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.85rem;
+    }
+    
+    .session-filter-btn {
+        border-radius: 20px;
+        font-size: 0.85rem;
+        padding: 6px 12px;
+    }
+    
+    .session-filter-btn.active {
+        background-color: var(--accent-color);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">Coaching Sessions</h2>
+            </div>
+            <p class="text-secondary">
+                Review your past coaching sessions and continue ongoing conversations with your coach.
+            </p>
+        </div>
+        
+        <div>
+            <a href="{{ url_for('strategy_coach.new_coaching_session') }}" class="btn btn-primary">
+                <i class="fa fa-plus-circle me-2"></i> New Session
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="card mb-4">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <div class="d-flex gap-2 mb-2 mb-md-0">
+                    <button class="btn btn-sm session-filter-btn active" data-filter="all">
+                        All Sessions
+                    </button>
+                    <button class="btn btn-sm session-filter-btn" data-filter="active">
+                        <i class="fa fa-play-circle me-1"></i> Active
+                    </button>
+                    <button class="btn btn-sm session-filter-btn" data-filter="completed">
+                        <i class="fa fa-check-circle me-1"></i> Completed
+                    </button>
+                    <button class="btn btn-sm session-filter-btn" data-filter="archived">
+                        <i class="fa fa-archive me-1"></i> Archived
+                    </button>
+                </div>
+                
+                <div class="d-flex align-items-center">
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-sm" id="sessionSearchInput" placeholder="Search sessions...">
+                        <button class="btn btn-outline-secondary btn-sm" type="button">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sessions List -->
+    <div class="row" id="sessionsContainer">
+        {% if sessions and sessions|length > 0 %}
+            {% for session in sessions %}
+                <div class="col-md-12 mb-3 session-item" data-status="{{ session.status }}">
+                    <div class="session-card card {{ session.status }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="mb-1">{{ session.title }}</h5>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <span class="topic-badge">
+                                            <i class="fa fa-{{ 'diagram-project' if session.topic == 'strategy_review' else 'chart-column' if session.topic == 'trade_analysis' else 'graduation-cap' if session.topic == 'skill_development' else 'globe' }} me-1"></i>
+                                            {{ session.topic|replace('_', ' ')|title }}
+                                        </span>
+                                        <span class="text-secondary small">
+                                            <i class="fa fa-calendar me-1"></i> {{ session.created_at|datetime }}
+                                        </span>
+                                    </div>
+                                    
+                                    {% if session.conversation and session.conversation|length > 0 %}
+                                        <div class="message-preview">
+                                            {{ session.conversation[0].content|truncate(150) }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="badge bg-{{ 'success' if session.status == 'completed' else 'primary' if session.status == 'active' else 'secondary' }} px-3 py-2 mb-2">
+                                        {{ session.status|title }}
+                                    </span>
+                                    
+                                    {% if session.action_items %}
+                                        <div class="action-items-count mb-3">
+                                            <i class="fa fa-list-check text-accent"></i>
+                                            {% set completed = session.action_items|selectattr('completed', 'equalto', true)|list|length %}
+                                            {{ completed }} / {{ session.action_items|length }} Action Items
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <a href="{{ url_for('strategy_coach.view_session', session_id=session.id) }}" class="btn btn-sm btn-primary">
+                                        {% if session.status == 'active' %}
+                                            <i class="fa fa-comments me-1"></i> Continue
+                                        {% else %}
+                                            <i class="fa fa-eye me-1"></i> View
+                                        {% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body text-center p-5">
+                        <i class="fa fa-comments fa-4x text-secondary mb-3"></i>
+                        <h5 class="mb-3">No Coaching Sessions Yet</h5>
+                        <p class="text-secondary mb-4">Start your first coaching session to get personalized guidance for your trading strategy.</p>
+                        <a href="{{ url_for('strategy_coach.new_coaching_session') }}" class="btn btn-primary">
+                            <i class="fa fa-plus-circle me-2"></i> Start Coaching Session
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- No Results Message (hidden by default) -->
+    <div id="noResultsMessage" class="card d-none">
+        <div class="card-body text-center p-4">
+            <i class="fa fa-search fa-2x text-secondary mb-3"></i>
+            <h5 class="mb-2">No Sessions Found</h5>
+            <p class="text-secondary">No coaching sessions match your search criteria.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Session filtering
+        const filterButtons = document.querySelectorAll('.session-filter-btn');
+        const sessionItems = document.querySelectorAll('.session-item');
+        const sessionsContainer = document.getElementById('sessionsContainer');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const searchInput = document.getElementById('sessionSearchInput');
+        
+        let currentFilter = 'all';
+        let searchQuery = '';
+        
+        // Filter function
+        function applyFilters() {
+            let visibleCount = 0;
+            
+            sessionItems.forEach(item => {
+                const status = item.dataset.status;
+                const sessionCard = item.querySelector('.session-card');
+                const sessionTitle = sessionCard.querySelector('h5').textContent.toLowerCase();
+                const sessionTopic = sessionCard.querySelector('.topic-badge').textContent.toLowerCase();
+                
+                const matchesFilter = currentFilter === 'all' || status === currentFilter;
+                const matchesSearch = searchQuery === '' || 
+                                     sessionTitle.includes(searchQuery) || 
+                                     sessionTopic.includes(searchQuery);
+                
+                if (matchesFilter && matchesSearch) {
+                    item.classList.remove('d-none');
+                    visibleCount++;
+                } else {
+                    item.classList.add('d-none');
+                }
+            });
+            
+            // Show/hide no results message
+            if (visibleCount === 0 && sessionItems.length > 0) {
+                noResultsMessage.classList.remove('d-none');
+                sessionsContainer.classList.add('d-none');
+            } else {
+                noResultsMessage.classList.add('d-none');
+                sessionsContainer.classList.remove('d-none');
+            }
+        }
+        
+        // Filter button click handlers
+        filterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Update active state
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Update filter and apply
+                currentFilter = this.dataset.filter;
+                applyFilters();
+            });
+        });
+        
+        // Search input handler
+        searchInput.addEventListener('input', function() {
+            searchQuery = this.value.toLowerCase().trim();
+            applyFilters();
+        });
+    });
+</script>
+{% endblock %}

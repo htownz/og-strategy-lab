@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Optimization Results{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .results-chart {
+        height: 400px;
+        width: 100%;
+    }
+    .table-sm td, .table-sm th {
+        padding: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.strategy_details', strategy_id=result.strategy_id) }}">Strategy Details</a></li>
+            <li class="breadcrumb-item active">Optimization Results</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Strategy Optimization Results</h1>
+        <div class="btn-group">
+            <a href="{{ url_for('backtest.strategy_details', strategy_id=result.strategy_id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to Strategy
+            </a>
+            <a href="{{ url_for('backtest.optimize_strategy', strategy_id=result.strategy_id) }}" class="btn btn-primary">
+                <i class="bi bi-gear-fill me-1"></i> New Optimization
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Optimization Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5">Strategy</dt>
+                                <dd class="col-sm-7">{{ strategy.name }}</dd>
+                                
+                                <dt class="col-sm-5">Optimization Target</dt>
+                                <dd class="col-sm-7">{{ result.optimization_target|replace('_', ' ')|title }}</dd>
+                                
+                                <dt class="col-sm-5">Timeframe</dt>
+                                <dd class="col-sm-7">{{ result.timeframe or 'N/A' }}</dd>
+                                
+                                <dt class="col-sm-5">Test Date</dt>
+                                <dd class="col-sm-7">{{ result.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5">Parameter Sets Tested</dt>
+                                <dd class="col-sm-7">{{ results_data.results|length if results_data.results else 0 }}</dd>
+                                
+                                <dt class="col-sm-5">Symbols</dt>
+                                <dd class="col-sm-7">{{ result.symbols or 'N/A' }}</dd>
+                                
+                                <dt class="col-sm-5">Total Trades</dt>
+                                <dd class="col-sm-7">{{ results_data.results[0].summary.total_trades if results_data.results else 'N/A' }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Best Parameters</h5>
+                </div>
+                <div class="card-body">
+                    {% if result.best_parameters %}
+                        {% set best_params = result.best_parameters %}
+                        <dl class="row mb-0">
+                            {% for key, value in best_params.items() %}
+                                <dt class="col-sm-7">{{ key|replace('_', ' ')|title }}</dt>
+                                <dd class="col-sm-5">
+                                    {% if value is iterable and value is not string %}
+                                        {{ value|join(', ') }}
+                                    {% else %}
+                                        {{ value }}
+                                    {% endif %}
+                                </dd>
+                            {% endfor %}
+                        </dl>
+                        
+                        {% if can_apply %}
+                            <div class="mt-3 pt-3 border-top">
+                                <form method="POST" action="{{ url_for('backtest.apply_optimization', result_id=result.id) }}">
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-check-circle me-1"></i> Apply to Strategy
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted mb-0">No best parameters found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    {% if results_data.best_performance %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Best Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light metric-card">
+                            <div class="card-body text-center p-3">
+                                <h6 class="text-muted mb-2">Win Rate</h6>
+                                <h3 class="mb-0 {% if results_data.best_performance.win_rate >= 0.6 %}text-success{% elif results_data.best_performance.win_rate < 0.4 %}text-danger{% endif %}">
+                                    {{ '%.1f%%'|format(results_data.best_performance.win_rate * 100) }}
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light metric-card">
+                            <div class="card-body text-center p-3">
+                                <h6 class="text-muted mb-2">Profit Factor</h6>
+                                <h3 class="mb-0 {% if results_data.best_performance.profit_factor >= 1.5 %}text-success{% elif results_data.best_performance.profit_factor < 1 %}text-danger{% endif %}">
+                                    {{ '%.2f'|format(results_data.best_performance.profit_factor) }}
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light metric-card">
+                            <div class="card-body text-center p-3">
+                                <h6 class="text-muted mb-2">Max Drawdown</h6>
+                                <h3 class="mb-0 {% if results_data.best_performance.max_drawdown <= 0.1 %}text-success{% elif results_data.best_performance.max_drawdown > 0.2 %}text-danger{% endif %}">
+                                    {{ '%.1f%%'|format(results_data.best_performance.max_drawdown * 100) }}
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light metric-card">
+                            <div class="card-body text-center p-3">
+                                <h6 class="text-muted mb-2">Sharpe Ratio</h6>
+                                <h3 class="mb-0 {% if results_data.best_performance.sharpe_ratio >= 1 %}text-success{% elif results_data.best_performance.sharpe_ratio < 0.5 %}text-danger{% endif %}">
+                                    {{ '%.2f'|format(results_data.best_performance.sharpe_ratio) }}
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Results Visualization -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Parameter Performance Comparison</h5>
+        </div>
+        <div class="card-body">
+            <div class="results-chart" id="resultsChart"></div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">All Results</h5>
+            <span class="badge bg-primary">{{ results_data.results|length if results_data.results else 0 }} Parameter Combinations</span>
+        </div>
+        <div class="card-body p-0">
+            {% if results_data.results and results_data.results|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Parameters</th>
+                                <th>Win Rate</th>
+                                <th>Profit Factor</th>
+                                <th>Max Drawdown</th>
+                                <th>Sharpe Ratio</th>
+                                <th>Total Trades</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results_data.results|sort(reverse=true, attribute='performance.' + result.optimization_target) %}
+                                <tr class="{% if loop.first %}table-success{% endif %}">
+                                    <td>
+                                        {% for key, value in result.parameters.items() %}
+                                            <div><strong>{{ key|replace('_', ' ')|title }}:</strong> 
+                                                {% if value is iterable and value is not string %}
+                                                    {{ value|join(', ') }}
+                                                {% else %}
+                                                    {{ value }}
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </td>
+                                    <td>{{ '%.1f%%'|format(result.performance.win_rate * 100) }}</td>
+                                    <td>{{ '%.2f'|format(result.performance.profit_factor) }}</td>
+                                    <td>{{ '%.1f%%'|format(result.performance.max_drawdown * 100) }}</td>
+                                    <td>{{ '%.2f'|format(result.performance.sharpe_ratio) }}</td>
+                                    <td>{{ result.summary.total_trades }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center">
+                    <p class="text-muted mb-0">No results available.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+        
+        <form method="POST" action="{{ url_for('backtest.delete_result', result_id=result.id) }}" onsubmit="return confirm('Are you sure you want to delete this optimization result?')">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash me-1"></i> Delete Result
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart setup
+        const resultsData = {{ results_data|tojson }};
+        
+        // Results visualization
+        if (resultsData && resultsData.results && document.getElementById('resultsChart')) {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            
+            // Sort by the optimization target
+            const sortedResults = [...resultsData.results].sort((a, b) => {
+                return a.performance[resultsData.optimization_target] - b.performance[resultsData.optimization_target];
+            });
+            
+            // Create labels and datasets based on parameter types
+            const paramKeys = Object.keys(sortedResults[0].parameters);
+            
+            // Find the parameter with most variation to use as labels
+            let labelParam = paramKeys[0];
+            let maxVariations = 0;
+            
+            paramKeys.forEach(key => {
+                const variations = new Set(sortedResults.map(r => JSON.stringify(r.parameters[key]))).size;
+                if (variations > maxVariations) {
+                    maxVariations = variations;
+                    labelParam = key;
+                }
+            });
+            
+            // Group by the other parameters
+            const otherParams = paramKeys.filter(key => key !== labelParam);
+            
+            if (otherParams.length > 0) {
+                // Group by the second parameter
+                const groupByParam = otherParams[0];
+                const groups = {};
+                
+                sortedResults.forEach(result => {
+                    const groupValue = JSON.stringify(result.parameters[groupByParam]);
+                    if (!groups[groupValue]) {
+                        groups[groupValue] = [];
+                    }
+                    groups[groupValue].push(result);
+                });
+                
+                // Create datasets for each group
+                const datasets = [];
+                const colors = [
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)'
+                ];
+                
+                Object.entries(groups).forEach(([groupValue, results], index) => {
+                    // Sort this group by the label parameter
+                    results.sort((a, b) => {
+                        if (Array.isArray(a.parameters[labelParam])) {
+                            return JSON.stringify(a.parameters[labelParam]).localeCompare(JSON.stringify(b.parameters[labelParam]));
+                        }
+                        return a.parameters[labelParam] - b.parameters[labelParam];
+                    });
+                    
+                    datasets.push({
+                        label: `${groupByParam.replace('_', ' ')}: ${JSON.parse(groupValue)}`,
+                        data: results.map(r => r.performance[resultsData.optimization_target]),
+                        backgroundColor: colors[index % colors.length],
+                        borderColor: colors[index % colors.length].replace('0.8', '1'),
+                        borderWidth: 1
+                    });
+                });
+                
+                // Create labels
+                const uniqueLabels = [...new Set(sortedResults.map(r => {
+                    if (Array.isArray(r.parameters[labelParam])) {
+                        return JSON.stringify(r.parameters[labelParam]);
+                    }
+                    return r.parameters[labelParam];
+                }))].sort((a, b) => {
+                    if (typeof a === 'string' && a.startsWith('[')) {
+                        return a.localeCompare(b);
+                    }
+                    return a - b;
+                });
+                
+                // Format labels
+                const formatLabels = uniqueLabels.map(label => {
+                    if (typeof label === 'string' && label.startsWith('[')) {
+                        try {
+                            return JSON.parse(label).join(',');
+                        } catch (e) {
+                            return label;
+                        }
+                    }
+                    return label;
+                });
+                
+                // Create chart
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: formatLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: resultsData.optimization_target !== 'max_drawdown',
+                                title: {
+                                    display: true,
+                                    text: resultsData.optimization_target.replace('_', ' ').toUpperCase()
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: labelParam.replace('_', ' ').toUpperCase()
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        return `${labelParam.replace('_', ' ')}: ${tooltipItems[0].label}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

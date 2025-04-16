@@ -1,0 +1,1078 @@
+{% extends "base.html" %}
+
+{% block title %}Risk Management{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/risk_management.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Risk Management</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Risk Profiles</h5>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProfileModal">
+                        <i class="fas fa-plus"></i> New Profile
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if profiles %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Max Position Size</th>
+                                        <th>Stop Loss %</th>
+                                        <th>Take Profit %</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="risk-profiles-table">
+                                    {% for profile in profiles %}
+                                    <tr class="{% if profile.is_active %}table-primary{% endif %}">
+                                        <td>{{ profile.name }}</td>
+                                        <td>${{ profile.max_position_size }}</td>
+                                        <td>{{ profile.stop_loss_percent }}%</td>
+                                        <td>{{ profile.take_profit_percent }}%</td>
+                                        <td>
+                                            {% if profile.is_active %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not profile.is_active %}
+                                                <button class="btn btn-success btn-sm activate-profile" data-id="{{ profile.id }}">
+                                                    <i class="fas fa-check"></i> Activate
+                                                </button>
+                                            {% endif %}
+                                            <button class="btn btn-info btn-sm edit-profile" data-id="{{ profile.id }}">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            {% if not profile.is_active %}
+                                                <button class="btn btn-danger btn-sm delete-profile" data-id="{{ profile.id }}">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            You don't have any risk profiles yet. 
+                            <button class="btn btn-primary btn-sm" id="create-default-profile">
+                                Create Default Profile
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card bg-dark mb-4">
+                <div class="card-header">
+                    <h5>Active Profile Settings</h5>
+                </div>
+                <div class="card-body">
+                    <div id="active-profile-content">
+                        {% set active = None %}
+                        {% for p in profiles %}
+                            {% if p.is_active %}
+                                {% set active = p %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if active %}
+                            <h6 class="mb-3">{{ active.name }}</h6>
+                            <p class="text-muted">{{ active.description }}</p>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card bg-dark border-secondary">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Position Limits</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Max Position Size:</span>
+                                                    <span class="text-info">${{ active.max_position_size }}</span>
+                                                </label>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Max Positions:</span>
+                                                    <span class="text-info">{{ active.max_positions }}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card bg-dark border-secondary">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Loss Protection</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Max Daily Loss:</span>
+                                                    <span class="text-danger">${{ active.max_daily_loss }}</span>
+                                                </label>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Stop Loss %:</span>
+                                                    <span class="text-danger">{{ active.stop_loss_percent }}%</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card bg-dark border-secondary">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Profit Taking</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Take Profit %:</span>
+                                                    <span class="text-success">{{ active.take_profit_percent }}%</span>
+                                                </label>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Auto Close (min):</span>
+                                                    <span class="text-info">{{ active.auto_close_minutes if active.auto_close_minutes > 0 else 'Off' }}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card bg-dark border-secondary">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Strategy Settings</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Min Confidence:</span>
+                                                    <span class="text-info">{{ active.min_strategy_confidence }}%</span>
+                                                </label>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label d-flex justify-content-between">
+                                                    <span>Volatility Adjustment:</span>
+                                                    <span class="text-info">{{ 'Enabled' if active.enable_volatility_adjustment else 'Disabled' }}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                No active risk profile. Please activate a profile from the list.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card bg-dark mb-4">
+                <div class="card-header">
+                    <h5>Risk Management Dashboard</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Current Drawdown</h6>
+                                    <h3 class="text-danger" id="current-drawdown">
+                                        0.0%
+                                    </h3>
+                                    <p class="small text-muted">From peak equity</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Portfolio Heat</h6>
+                                    <h3 class="text-warning" id="portfolio-heat">
+                                        0.0%
+                                    </h3>
+                                    <p class="small text-muted">of max allocation</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Win Rate</h6>
+                                    <h3 class="text-info" id="win-rate">
+                                        0.0%
+                                    </h3>
+                                    <p class="small text-muted">Based on closed positions</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Trading Status</h6>
+                                    <h3 class="text-success" id="trading-status">
+                                        Active
+                                    </h3>
+                                    <p class="small text-muted">Based on risk rules</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Risk Exposure by Strategy</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-primary" style="width: 60%;">
+                                OG Classic (60%)
+                            </div>
+                        </div>
+                        
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: 25%;">
+                                EMA Trend (25%)
+                            </div>
+                        </div>
+                        
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-info" style="width: 15%;">
+                                Volume Profile (15%)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Risk Management Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Advanced Risk Management Configuration</h5>
+                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedRiskPanel" aria-expanded="false" aria-controls="advancedRiskPanel">
+                        <i class="fas fa-cogs"></i> Configure
+                    </button>
+                </div>
+                <div class="collapse" id="advancedRiskPanel">
+                    <div class="card-body">
+                        <!-- Tabbed interface for risk settings -->
+                        <ul class="nav nav-tabs mb-3" id="riskTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active risk-tab" id="position-sizing-tab" data-bs-toggle="tab" data-bs-target="#position-sizing" type="button" role="tab" aria-controls="position-sizing" aria-selected="true">
+                                    Position Sizing
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link risk-tab" id="safety-limits-tab" data-bs-toggle="tab" data-bs-target="#safety-limits" type="button" role="tab" aria-controls="safety-limits" aria-selected="false">
+                                    Safety Limits
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link risk-tab" id="exposure-management-tab" data-bs-toggle="tab" data-bs-target="#exposure-management" type="button" role="tab" aria-controls="exposure-management" aria-selected="false">
+                                    Exposure Management
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link risk-tab" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#risk-analytics" type="button" role="tab" aria-controls="risk-analytics" aria-selected="false">
+                                    Analytics
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="riskTabsContent">
+                            <!-- Position Sizing Tab -->
+                            <div class="tab-pane fade show active risk-tab-content" id="position-sizing" role="tabpanel" aria-labelledby="position-sizing-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Position Sizing Strategy</h5>
+                                            <div class="mb-3">
+                                                <label for="position-sizing-strategy" class="form-label">Strategy Type</label>
+                                                <select class="form-select form-select-sm" id="position-sizing-strategy">
+                                                    <option value="fixed">Fixed Size</option>
+                                                    <option value="percent">Percentage of Account</option>
+                                                    <option value="confidence_weighted" selected>Confidence Weighted</option>
+                                                    <option value="kelly">Kelly Criterion</option>
+                                                    <option value="volatility">Volatility Adjusted</option>
+                                                </select>
+                                                <small class="form-text text-muted">How position size is determined for each trade</small>
+                                            </div>
+                                            
+                                            <div id="custom-position-sizing-options">
+                                                <div class="mb-3">
+                                                    <label for="confidence-weight" class="form-label">Confidence Weight</label>
+                                                    <div class="custom-range-slider">
+                                                        <input type="range" class="form-range" min="0.1" max="1" step="0.1" value="0.3" id="confidence-weight">
+                                                        <div class="range-values">
+                                                            <span>0.1</span>
+                                                            <span>0.5</span>
+                                                            <span>1.0</span>
+                                                        </div>
+                                                    </div>
+                                                    <small class="form-text text-muted">Impact of confidence score on position size (higher = more impact)</small>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <div class="form-check form-switch position-sizing-form-check">
+                                                        <input class="form-check-input" type="checkbox" id="dynamic-sizing-enabled" checked>
+                                                        <label class="form-check-label" for="dynamic-sizing-enabled">
+                                                            <div>
+                                                                Dynamic Position Sizing
+                                                                <small class="d-block text-muted">Adjusts position size based on recent performance</small>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Position Size Limits</h5>
+                                            <div class="mb-3">
+                                                <label for="min-contracts" class="form-label">Minimum Contracts</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control" id="min-contracts" value="1" min="1">
+                                                    <span class="input-group-text">contracts</span>
+                                                </div>
+                                                <small class="form-text text-muted">Minimum number of contracts per trade</small>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="max-contracts" class="form-label">Maximum Contracts</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control" id="max-contracts" value="10" min="1">
+                                                    <span class="input-group-text">contracts</span>
+                                                </div>
+                                                <small class="form-text text-muted">Maximum number of contracts per trade</small>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="max-capital-per-trade" class="form-label">Max Capital Per Trade</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="number" class="form-control" id="max-capital-per-trade" value="1000" min="100">
+                                                </div>
+                                                <small class="form-text text-muted">Maximum capital allocated to a single trade</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Safety Limits Tab -->
+                            <div class="tab-pane fade risk-tab-content" id="safety-limits" role="tabpanel" aria-labelledby="safety-limits-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Drawdown Protection</h5>
+                                            <div class="mb-3">
+                                                <label for="drawdown-pause" class="form-label">Auto-Pause Drawdown Threshold</label>
+                                                <div class="risk-slider-container">
+                                                    <input type="range" class="form-range" min="3" max="15" step="1" value="7" id="drawdown-pause">
+                                                    <span class="value-display" id="drawdown-pause-value">7%</span>
+                                                </div>
+                                                <small class="form-text text-muted">Trading pauses automatically at this drawdown level</small>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="daily-loss-limit" class="form-label">Daily Loss Limit</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="number" class="form-control" id="daily-loss-limit" value="500" min="0">
+                                                </div>
+                                                <small class="form-text text-muted">Maximum allowed loss in a single day</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Stop Loss Configuration</h5>
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="stop-loss-type" id="fixed-stop-loss" value="fixed" checked>
+                                                    <label class="form-check-label" for="fixed-stop-loss">
+                                                        Fixed Percentage
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="stop-loss-type" id="atr-stop-loss" value="atr">
+                                                    <label class="form-check-label" for="atr-stop-loss">
+                                                        ATR-Based (Volatility Adjusted)
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="stop-loss-type" id="smart-stop-loss" value="smart">
+                                                    <label class="form-check-label" for="smart-stop-loss">
+                                                        Smart Stop (Pattern Recognition)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="auto-hedging-checkbox">
+                                                    <label class="form-check-label" for="auto-hedging-checkbox">
+                                                        Enable Auto-Hedging
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">Automatically hedge positions during high volatility</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Exposure Management Tab -->
+                            <div class="tab-pane fade risk-tab-content" id="exposure-management" role="tabpanel" aria-labelledby="exposure-management-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Portfolio Allocation</h5>
+                                            <div class="mb-3">
+                                                <label for="portfolio-allocation-limit" class="form-label">Max Portfolio Allocation</label>
+                                                <div class="risk-slider-container">
+                                                    <input type="range" class="form-range" min="10" max="100" step="5" value="50" id="portfolio-allocation-limit">
+                                                    <span class="value-display" id="portfolio-allocation-limit-value">50%</span>
+                                                </div>
+                                                <small class="form-text text-muted">Maximum percentage of portfolio at risk</small>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="correlation-limit" class="form-label">Correlation Limit</label>
+                                                <div class="risk-slider-container">
+                                                    <input type="range" class="form-range" min="0" max="1" step="0.1" value="0.7" id="correlation-limit">
+                                                    <span class="value-display" id="correlation-limit-value">0.7</span>
+                                                </div>
+                                                <small class="form-text text-muted">Maximum allowed correlation between positions (higher = more risk)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Strategy Allocation</h5>
+                                            <div class="mb-3">
+                                                <label class="form-label">Strategy Allocation Limits</label>
+                                                <div class="mb-2">
+                                                    <label for="og-classic-allocation" class="form-label">OG Classic</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="og-classic-allocation" value="60" min="0" max="100">
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-2">
+                                                    <label for="ema-trend-allocation" class="form-label">EMA Trend</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="ema-trend-allocation" value="25" min="0" max="100">
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-2">
+                                                    <label for="volume-profile-allocation" class="form-label">Volume Profile</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="volume-profile-allocation" value="15" min="0" max="100">
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Risk Analytics Tab -->
+                            <div class="tab-pane fade risk-tab-content" id="risk-analytics" role="tabpanel" aria-labelledby="risk-analytics-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Performance Metrics</h5>
+                                            <div class="row mb-3">
+                                                <div class="col-6">
+                                                    <div class="card bg-dark">
+                                                        <div class="card-body text-center py-2">
+                                                            <div class="small text-muted">Profit Factor</div>
+                                                            <div class="fs-5 fw-bold text-success" id="profit-factor">1.82</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="col-6">
+                                                    <div class="card bg-dark">
+                                                        <div class="card-body text-center py-2">
+                                                            <div class="small text-muted">Win/Loss Ratio</div>
+                                                            <div class="fs-5 fw-bold text-info" id="avg-win-loss-ratio">1.56</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="risk-chart-container">
+                                                <canvas id="win-loss-chart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="risk-setting-group">
+                                            <h5>Risk Heatmap</h5>
+                                            <p class="text-muted small">Relative risk exposure across strategies and symbols</p>
+                                            <div id="risk-heatmap"></div>
+                                        </div>
+                                        
+                                        <div class="risk-setting-group mt-3">
+                                            <h5>Drawdown History</h5>
+                                            <div class="risk-chart-container">
+                                                <canvas id="drawdown-chart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" class="btn btn-secondary me-2" data-bs-toggle="collapse" data-bs-target="#advancedRiskPanel">
+                                Cancel
+                            </button>
+                            <button type="button" class="btn btn-primary" id="save-risk-settings">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Profile Modal -->
+<div class="modal fade" id="newProfileModal" tabindex="-1" aria-labelledby="newProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newProfileModalLabel">Create Risk Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="new-profile-form">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="profileName" class="form-label">Profile Name</label>
+                            <input type="text" class="form-control" id="profileName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profileDescription" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="profileDescription">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Position Size -->
+                        <div class="col-md-6">
+                            <label for="maxPositionSize" class="form-label">Max Position Size ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="maxPositionSize" min="100" max="10000" value="1000">
+                            </div>
+                        </div>
+                        
+                        <!-- Max Positions -->
+                        <div class="col-md-6">
+                            <label for="maxPositions" class="form-label">Max Simultaneous Positions</label>
+                            <input type="number" class="form-control" id="maxPositions" min="1" max="20" value="5">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Stop Loss -->
+                        <div class="col-md-6">
+                            <label for="stopLossPercent" class="form-label">Stop Loss (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="stopLossPercent" min="5" max="50" value="25">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Take Profit -->
+                        <div class="col-md-6">
+                            <label for="takeProfitPercent" class="form-label">Take Profit (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="takeProfitPercent" min="10" max="200" value="50">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Max Daily Loss -->
+                        <div class="col-md-6">
+                            <label for="maxDailyLoss" class="form-label">Max Daily Loss ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="maxDailyLoss" min="100" max="5000" value="500">
+                            </div>
+                        </div>
+                        
+                        <!-- Max Position Loss -->
+                        <div class="col-md-6">
+                            <label for="maxPositionLoss" class="form-label">Max Loss Per Position ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="maxPositionLoss" min="50" max="1000" value="150">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Auto Close -->
+                        <div class="col-md-6">
+                            <label for="autoCloseMinutes" class="form-label">Auto-Close After (minutes, 0=off)</label>
+                            <input type="number" class="form-control" id="autoCloseMinutes" min="0" max="240" value="0">
+                        </div>
+                        
+                        <!-- Min Strategy Confidence -->
+                        <div class="col-md-6">
+                            <label for="minStrategyConfidence" class="form-label">Min Strategy Confidence (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="minStrategyConfidence" min="50" max="95" value="70">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Volatility Adjustment -->
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="enableVolatilityAdjustment">
+                                <label class="form-check-label" for="enableVolatilityAdjustment">
+                                    Enable Volatility-Based Position Sizing
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Max Portfolio Allocation -->
+                        <div class="col-md-6">
+                            <label for="maxPortfolioAllocation" class="form-label">Max Portfolio Allocation (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="maxPortfolioAllocation" min="10" max="100" value="50">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <!-- Drawdown Pause -->
+                        <div class="col-md-6">
+                            <label for="drawdownPausePercent" class="form-label">Pause Trading at Drawdown (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="drawdownPausePercent" min="0" max="20" value="7">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Market Hours Only -->
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="marketHoursOnly" checked>
+                                <label class="form-check-label" for="marketHoursOnly">
+                                    Trade Only During Market Hours
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-new-profile">Create Profile</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProfileModalLabel">Edit Risk Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-profile-form">
+                    <input type="hidden" id="editProfileId">
+                    <!-- Form fields identical to new profile form -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="editProfileName" class="form-label">Profile Name</label>
+                            <input type="text" class="form-control" id="editProfileName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editProfileDescription" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="editProfileDescription">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="editMaxPositionSize" class="form-label">Max Position Size ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="editMaxPositionSize" min="100" max="10000">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="editMaxPositions" class="form-label">Max Simultaneous Positions</label>
+                            <input type="number" class="form-control" id="editMaxPositions" min="1" max="20">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="editStopLossPercent" class="form-label">Stop Loss (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="editStopLossPercent" min="5" max="50">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="editTakeProfitPercent" class="form-label">Take Profit (%)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="editTakeProfitPercent" min="10" max="200">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Remaining edit fields are similar to the new profile form -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="editMaxDailyLoss" class="form-label">Max Daily Loss ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="editMaxDailyLoss" min="100" max="5000">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="editMaxPositionLoss" class="form-label">Max Loss Per Position ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="editMaxPositionLoss" min="50" max="1000">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-edit-profile">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteProfileModal" tabindex="-1" aria-labelledby="deleteProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteProfileModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the risk profile: <span id="delete-profile-name" class="fw-bold"></span>?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+                <input type="hidden" id="deleteProfileId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-profile">Delete Profile</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Create default profile
+    document.getElementById('create-default-profile')?.addEventListener('click', function() {
+        fetch('/api/risk/default-profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                location.reload();
+            } else {
+                showAlert('danger', data.message || 'Failed to create default profile');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while creating the profile');
+        });
+    });
+    
+    // Create new profile
+    document.getElementById('save-new-profile')?.addEventListener('click', function() {
+        const profileData = {
+            name: document.getElementById('profileName').value,
+            description: document.getElementById('profileDescription').value,
+            max_position_size: parseFloat(document.getElementById('maxPositionSize').value),
+            max_positions: parseInt(document.getElementById('maxPositions').value),
+            stop_loss_percent: parseFloat(document.getElementById('stopLossPercent').value),
+            take_profit_percent: parseFloat(document.getElementById('takeProfitPercent').value),
+            max_daily_loss: parseFloat(document.getElementById('maxDailyLoss').value),
+            max_position_loss: parseFloat(document.getElementById('maxPositionLoss').value),
+            auto_close_minutes: parseInt(document.getElementById('autoCloseMinutes').value),
+            min_strategy_confidence: parseFloat(document.getElementById('minStrategyConfidence').value),
+            enable_volatility_adjustment: document.getElementById('enableVolatilityAdjustment').checked,
+            max_portfolio_allocation: parseFloat(document.getElementById('maxPortfolioAllocation').value),
+            drawdown_pause_percent: parseFloat(document.getElementById('drawdownPausePercent').value),
+            market_hours_only: document.getElementById('marketHoursOnly').checked,
+        };
+        
+        fetch('/api/risk/profiles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(profileData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                location.reload();
+            } else {
+                showAlert('danger', data.message || 'Failed to create profile');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while creating the profile');
+        });
+    });
+    
+    // Activate profile
+    document.querySelectorAll('.activate-profile').forEach(button => {
+        button.addEventListener('click', function() {
+            const profileId = this.getAttribute('data-id');
+            
+            fetch(`/api/risk/profiles/${profileId}/activate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    location.reload();
+                } else {
+                    showAlert('danger', data.message || 'Failed to activate profile');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while activating the profile');
+            });
+        });
+    });
+    
+    // Edit profile - open modal and populate data
+    document.querySelectorAll('.edit-profile').forEach(button => {
+        button.addEventListener('click', function() {
+            const profileId = this.getAttribute('data-id');
+            
+            fetch(`/api/risk/profiles/${profileId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const profile = data.profile;
+                    document.getElementById('editProfileId').value = profile.id;
+                    document.getElementById('editProfileName').value = profile.name;
+                    document.getElementById('editProfileDescription').value = profile.description || '';
+                    document.getElementById('editMaxPositionSize').value = profile.max_position_size;
+                    document.getElementById('editMaxPositions').value = profile.max_positions;
+                    document.getElementById('editStopLossPercent').value = profile.stop_loss_percent;
+                    document.getElementById('editTakeProfitPercent').value = profile.take_profit_percent;
+                    document.getElementById('editMaxDailyLoss').value = profile.max_daily_loss;
+                    document.getElementById('editMaxPositionLoss').value = profile.max_position_loss;
+                    
+                    // Open the modal
+                    const editModal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+                    editModal.show();
+                } else {
+                    showAlert('danger', data.message || 'Failed to load profile data');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading the profile');
+            });
+        });
+    });
+    
+    // Save edited profile
+    document.getElementById('save-edit-profile')?.addEventListener('click', function() {
+        const profileId = document.getElementById('editProfileId').value;
+        const profileData = {
+            name: document.getElementById('editProfileName').value,
+            description: document.getElementById('editProfileDescription').value,
+            max_position_size: parseFloat(document.getElementById('editMaxPositionSize').value),
+            max_positions: parseInt(document.getElementById('editMaxPositions').value),
+            stop_loss_percent: parseFloat(document.getElementById('editStopLossPercent').value),
+            take_profit_percent: parseFloat(document.getElementById('editTakeProfitPercent').value),
+            max_daily_loss: parseFloat(document.getElementById('editMaxDailyLoss').value),
+            max_position_loss: parseFloat(document.getElementById('editMaxPositionLoss').value),
+            // Add other fields as needed
+        };
+        
+        fetch(`/api/risk/profiles/${profileId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(profileData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                location.reload();
+            } else {
+                showAlert('danger', data.message || 'Failed to update profile');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while updating the profile');
+        });
+    });
+    
+    // Delete profile - open confirmation modal
+    document.querySelectorAll('.delete-profile').forEach(button => {
+        button.addEventListener('click', function() {
+            const profileId = this.getAttribute('data-id');
+            const profileName = this.closest('tr').querySelector('td:first-child').textContent;
+            
+            document.getElementById('deleteProfileId').value = profileId;
+            document.getElementById('delete-profile-name').textContent = profileName;
+            
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteProfileModal'));
+            deleteModal.show();
+        });
+    });
+    
+    // Confirm delete profile
+    document.getElementById('confirm-delete-profile')?.addEventListener('click', function() {
+        const profileId = document.getElementById('deleteProfileId').value;
+        
+        fetch(`/api/risk/profiles/${profileId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                location.reload();
+            } else {
+                showAlert('danger', data.message || 'Failed to delete profile');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while deleting the profile');
+        });
+    });
+    
+    // Helper function to show alerts
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Insert the alert at the top of the container
+        const container = document.querySelector('.container');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 300);
+        }, 5000);
+    }
+    
+    // Update risk dashboard data - simulated for now
+    function updateRiskDashboard() {
+        // In a real app, these would be fetched from the server
+        document.getElementById('current-drawdown').textContent = '3.2%';
+        document.getElementById('portfolio-heat').textContent = '42.5%';
+        document.getElementById('win-rate').textContent = '68.4%';
+        document.getElementById('trading-status').textContent = 'Active';
+    }
+    
+    // Call initial update
+    updateRiskDashboard();
+    
+    // Periodically update dashboard (every 30s)
+    setInterval(updateRiskDashboard, 30000);
+});
+</script>
+
+<!-- External risk management JavaScript -->
+<script src="{{ url_for('static', filename='js/risk_management.js') }}"></script>
+{% endblock %}

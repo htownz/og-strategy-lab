@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | Create Learning Path{% endblock %}
+
+{% block head %}
+<style>
+    .focus-area-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+    }
+    
+    .focus-area-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .focus-area-card.selected {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 1px var(--accent-color);
+    }
+    
+    .focus-area-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+    }
+    
+    .focus-area-icon i {
+        font-size: 24px;
+        color: var(--accent-color);
+    }
+    
+    .skill-level-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .skill-level-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .skill-level-card.selected {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 1px var(--accent-color);
+    }
+    
+    .skill-level-icon {
+        font-size: 30px;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.learning_paths') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">Create Learning Path</h2>
+            </div>
+            <p class="text-secondary">
+                Customize your learning journey by selecting focus areas and skill level.
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('strategy_coach.new_learning_path') }}">
+        <!-- Learning Path Name -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Learning Path Name</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <input type="text" class="form-control" id="name" name="name" placeholder="e.g., OG Strategy Mastery Path" required>
+                    <div class="form-text text-secondary">
+                        Choose a descriptive name that reflects your learning goals
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Skill Level Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Skill Level</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="skill-level-card card text-center p-3 selected" data-skill-level="beginner">
+                            <div class="skill-level-icon text-accent">
+                                <i class="fa fa-seedling"></i>
+                            </div>
+                            <h5 class="mb-2">Beginner</h5>
+                            <p class="text-secondary small mb-0">
+                                New to trading or just starting with the OG Strategy
+                            </p>
+                            <input type="radio" name="skill_level" value="beginner" checked class="d-none">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="skill-level-card card text-center p-3" data-skill-level="intermediate">
+                            <div class="skill-level-icon text-accent">
+                                <i class="fa fa-user"></i>
+                            </div>
+                            <h5 class="mb-2">Intermediate</h5>
+                            <p class="text-secondary small mb-0">
+                                Familiar with basic concepts, seeking deeper understanding
+                            </p>
+                            <input type="radio" name="skill_level" value="intermediate" class="d-none">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="skill-level-card card text-center p-3" data-skill-level="advanced">
+                            <div class="skill-level-icon text-accent">
+                                <i class="fa fa-user-graduate"></i>
+                            </div>
+                            <h5 class="mb-2">Advanced</h5>
+                            <p class="text-secondary small mb-0">
+                                Experienced trader looking to refine strategy and execution
+                            </p>
+                            <input type="radio" name="skill_level" value="advanced" class="d-none">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="skill-level-card card text-center p-3" data-skill-level="expert">
+                            <div class="skill-level-icon text-accent">
+                                <i class="fa fa-crown"></i>
+                            </div>
+                            <h5 class="mb-2">Expert</h5>
+                            <p class="text-secondary small mb-0">
+                                Highly skilled trader seeking mastery and optimization
+                            </p>
+                            <input type="radio" name="skill_level" value="expert" class="d-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Focus Areas Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Focus Areas</h5>
+                <p class="text-secondary small mb-0">Select at least one area to focus on (maximum 4)</p>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3 selected" data-focus-area="og_strategy_basics">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-chart-line"></i>
+                            </div>
+                            <h6 class="mb-2">OG Strategy Basics</h6>
+                            <p class="text-secondary small mb-0">
+                                Core components and implementation of the OG Strategy
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="og_strategy_basics" id="focus-og-basics" checked>
+                                <label class="form-check-label" for="focus-og-basics">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="ema_cloud_mastery">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-cloud"></i>
+                            </div>
+                            <h6 class="mb-2">EMA Cloud Mastery</h6>
+                            <p class="text-secondary small mb-0">
+                                Detailed study of EMA cloud patterns and interpretations
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="ema_cloud_mastery" id="focus-ema-cloud">
+                                <label class="form-check-label" for="focus-ema-cloud">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="order_block_fvg">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-cubes"></i>
+                            </div>
+                            <h6 class="mb-2">Order Blocks & FVG</h6>
+                            <p class="text-secondary small mb-0">
+                                Identifying and trading Order Blocks and Fair Value Gaps
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="order_block_fvg" id="focus-ob-fvg">
+                                <label class="form-check-label" for="focus-ob-fvg">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="volume_analysis">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-chart-bar"></i>
+                            </div>
+                            <h6 class="mb-2">Volume Analysis</h6>
+                            <p class="text-secondary small mb-0">
+                                Using volume to confirm price movements and strength
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="volume_analysis" id="focus-volume">
+                                <label class="form-check-label" for="focus-volume">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="multi_timeframe">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-layer-group"></i>
+                            </div>
+                            <h6 class="mb-2">Multi-Timeframe Analysis</h6>
+                            <p class="text-secondary small mb-0">
+                                Aligning signals across multiple timeframes for confidence
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="multi_timeframe" id="focus-mta">
+                                <label class="form-check-label" for="focus-mta">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="trade_psychology">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-brain"></i>
+                            </div>
+                            <h6 class="mb-2">Trading Psychology</h6>
+                            <p class="text-secondary small mb-0">
+                                Emotional discipline and mental aspects of trading
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="trade_psychology" id="focus-psychology">
+                                <label class="form-check-label" for="focus-psychology">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="risk_management">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-shield-alt"></i>
+                            </div>
+                            <h6 class="mb-2">Risk Management</h6>
+                            <p class="text-secondary small mb-0">
+                                Position sizing, stop loss placement, and capital preservation
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="risk_management" id="focus-risk">
+                                <label class="form-check-label" for="focus-risk">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="focus-area-card card text-center p-3" data-focus-area="options_strategy">
+                            <div class="focus-area-icon">
+                                <i class="fa fa-chess"></i>
+                            </div>
+                            <h6 class="mb-2">Options Strategy</h6>
+                            <p class="text-secondary small mb-0">
+                                Using options contracts with the OG Strategy for leverage
+                            </p>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="focus_areas" value="options_strategy" id="focus-options">
+                                <label class="form-check-label" for="focus-options">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('strategy_coach.learning_paths') }}" class="btn btn-outline-secondary">
+                <i class="fa fa-times me-2"></i> Cancel
+            </a>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fa fa-check me-2"></i> Create Learning Path
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Skill Level Selection
+        const skillLevelCards = document.querySelectorAll('.skill-level-card');
+        
+        skillLevelCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selected class from all cards
+                skillLevelCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked card
+                this.classList.add('selected');
+                
+                // Update hidden radio button
+                const radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+            });
+        });
+        
+        // Focus Area Selection
+        const focusAreaCards = document.querySelectorAll('.focus-area-card');
+        
+        focusAreaCards.forEach(card => {
+            card.addEventListener('click', function() {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                
+                // Update selected class
+                if (checkbox.checked) {
+                    this.classList.add('selected');
+                } else {
+                    this.classList.remove('selected');
+                }
+                
+                // Count selected areas
+                const selectedCount = document.querySelectorAll('input[name="focus_areas"]:checked').length;
+                
+                // Disable checkboxes if maximum reached
+                if (selectedCount >= 4) {
+                    document.querySelectorAll('input[name="focus_areas"]:not(:checked)').forEach(cb => {
+                        cb.disabled = true;
+                        cb.closest('.focus-area-card').style.opacity = '0.5';
+                    });
+                } else {
+                    document.querySelectorAll('input[name="focus_areas"]').forEach(cb => {
+                        cb.disabled = false;
+                        cb.closest('.focus-area-card').style.opacity = '1';
+                    });
+                }
+            });
+            
+            // Update card when checkbox is clicked directly
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+        });
+        
+        // Form validation
+        const form = document.querySelector('form');
+        
+        form.addEventListener('submit', function(e) {
+            const name = document.getElementById('name').value.trim();
+            const selectedFocusAreas = document.querySelectorAll('input[name="focus_areas"]:checked');
+            
+            if (!name) {
+                e.preventDefault();
+                alert('Please enter a name for your learning path.');
+                return;
+            }
+            
+            if (selectedFocusAreas.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one focus area.');
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

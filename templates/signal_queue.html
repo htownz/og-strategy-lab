@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+
+{% block title %}Signal Queue Monitor{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h2>Signal Queue Monitor</h2>
+            <p class="text-muted">Real-time monitoring of signal queue health and auto-healing actions</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Health Status Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark text-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Queue Health</h5>
+                    <span id="healthBadge" class="badge 
+                        {% if metrics.health_status == 'HEALTHY' %}bg-success
+                        {% elif metrics.health_status == 'WARNING' %}bg-warning
+                        {% elif metrics.health_status == 'CRITICAL' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ metrics.health_status }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-column">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="autoHealingSwitch" 
+                                       {% if metrics.auto_healing_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="autoHealingSwitch">Auto-Healing Active</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>Healing Actions Triggered</h6>
+                            <div class="d-flex justify-content-center">
+                                <div class="display-4" id="healingActionsCount">{{ metrics.healing_actions_count }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>Signal Rate (per minute)</h6>
+                            <div class="progress" style="height: 20px">
+                                <div id="signalRateBar" class="progress-bar bg-info" role="progressbar" 
+                                     style="width: {{ min(metrics.signal_rate_per_min / 100 * 100, 100) }}%">
+                                    <span id="signalRateValue">{{ metrics.signal_rate_per_min }}</span>/min
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>Processing Time</h6>
+                            <p class="text-center mb-0" id="avgProcessingTime">{{ metrics.avg_processing_time_ms }} ms</p>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button id="triggerHealingBtn" class="btn btn-warning">Trigger Healing Action</button>
+                            <button id="resetQueueBtn" class="btn btn-outline-danger">Reset Queue</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Queue Metrics Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Queue Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-4">
+                            <div class="border-end">
+                                <h2 id="totalProcessed">{{ metrics.total_processed }}</h2>
+                                <p class="text-muted">Total Processed</p>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-4">
+                            <div>
+                                <h2 id="activeSignals">{{ metrics.active }}</h2>
+                                <p class="text-muted">Active Signals</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h2 id="flushedSignals">{{ metrics.flushed }}</h2>
+                                <p class="text-muted">Auto-Flushed</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div>
+                                <h2 id="retriedSignals">{{ metrics.retried }}</h2>
+                                <p class="text-muted">Retried</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6>Confidence Distribution</h6>
+                    <canvas id="confidenceChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stress Test Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark text-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Stress Testing</h5>
+                    <span id="stressTestBadge" class="badge {% if metrics.stress_test_active %}bg-warning{% else %}bg-secondary{% endif %}">
+                        {% if metrics.stress_test_active %}ACTIVE{% else %}INACTIVE{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p>Generate test signals to validate system stability under load.</p>
+                    
+                    <div class="mb-3">
+                        <label for="signalCount" class="form-label">Signal Count</label>
+                        <input type="range" class="form-range" min="10" max="500" step="10" id="signalCount" value="100">
+                        <div class="d-flex justify-content-between">
+                            <span>10</span>
+                            <span id="signalCountValue">100</span>
+                            <span>500</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="signalInterval" class="form-label">Interval (ms)</label>
+                        <input type="range" class="form-range" min="100" max="2000" step="100" id="signalInterval" value="500">
+                        <div class="d-flex justify-content-between">
+                            <span>100ms</span>
+                            <span id="signalIntervalValue">500ms</span>
+                            <span>2000ms</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confidenceRange" class="form-label">Confidence Range</label>
+                        <select id="confidenceRange" class="form-select">
+                            <option value="random">Random (0.1-1.0)</option>
+                            <option value="high">High (0.7-1.0)</option>
+                            <option value="medium">Medium (0.4-0.7)</option>
+                            <option value="low">Low (0.1-0.4)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button id="startStressTestBtn" class="btn btn-outline-warning mb-2" 
+                                {% if metrics.stress_test_active %}disabled{% endif %}>
+                            Start Stress Test
+                        </button>
+                        {% if metrics.stress_test_active %}
+                        <button id="stopStressTestBtn" class="btn btn-danger">Stop Stress Test</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Test History Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Test History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Signals</th>
+                                    <th>Throughput</th>
+                                </tr>
+                            </thead>
+                            <tbody id="testHistoryTable">
+                                <!-- Test history items will be inserted here dynamically -->
+                                <tr>
+                                    <td colspan="3" class="text-center">No test history available</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize confidence distribution chart
+        const confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
+        const confidenceLabels = ['0.0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'];
+        const confidenceChart = new Chart(confidenceCtx, {
+            type: 'bar',
+            data: {
+                labels: confidenceLabels,
+                datasets: [{
+                    label: 'Signals by Confidence',
+                    data: {{ metrics.confidence_buckets|tojson }},
+                    backgroundColor: [
+                        'rgba(220, 53, 69, 0.7)',   // Low (red)
+                        'rgba(255, 193, 7, 0.7)',   // Medium-Low (yellow)
+                        'rgba(255, 193, 7, 0.7)',   // Medium (yellow)
+                        'rgba(25, 135, 84, 0.7)',   // Medium-High (green)
+                        'rgba(25, 135, 84, 0.7)'    // High (green)
+                    ],
+                    borderColor: [
+                        'rgba(220, 53, 69, 1)',
+                        'rgba(255, 193, 7, 1)',
+                        'rgba(255, 193, 7, 1)',
+                        'rgba(25, 135, 84, 1)',
+                        'rgba(25, 135, 84, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Signal Count'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Update slider values display
+        document.getElementById('signalCount').addEventListener('input', function() {
+            document.getElementById('signalCountValue').textContent = this.value;
+        });
+        
+        document.getElementById('signalInterval').addEventListener('input', function() {
+            document.getElementById('signalIntervalValue').textContent = this.value + 'ms';
+        });
+
+        // Socket.IO for real-time updates
+        const socket = io();
+        
+        socket.on('connect', function() {
+            console.log('Connected to Socket.IO server');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from Socket.IO server');
+        });
+        
+        socket.on('queue_metrics', function(data) {
+            // Update queue metrics
+            document.getElementById('totalProcessed').textContent = data.total_processed;
+            document.getElementById('activeSignals').textContent = data.active;
+            document.getElementById('flushedSignals').textContent = data.flushed;
+            document.getElementById('retriedSignals').textContent = data.retried;
+            document.getElementById('avgProcessingTime').textContent = data.avg_processing_time_ms + ' ms';
+            document.getElementById('healingActionsCount').textContent = data.healing_actions_count;
+            
+            // Update signal rate
+            const signalRateBar = document.getElementById('signalRateBar');
+            const ratePercent = Math.min((data.signal_rate_per_min / 100) * 100, 100);
+            signalRateBar.style.width = `${ratePercent}%`;
+            document.getElementById('signalRateValue').textContent = data.signal_rate_per_min;
+            
+            // Update health status
+            const healthBadge = document.getElementById('healthBadge');
+            healthBadge.className = 'badge';
+            
+            if (data.health_status === 'HEALTHY') {
+                healthBadge.classList.add('bg-success');
+            } else if (data.health_status === 'WARNING') {
+                healthBadge.classList.add('bg-warning');
+            } else if (data.health_status === 'CRITICAL') {
+                healthBadge.classList.add('bg-danger');
+            } else {
+                healthBadge.classList.add('bg-secondary');
+            }
+            
+            healthBadge.textContent = data.health_status;
+            
+            // Update confidence distribution chart
+            confidenceChart.data.datasets[0].data = data.confidence_buckets;
+            confidenceChart.update();
+            
+            // Update stress test status
+            const stressTestBadge = document.getElementById('stressTestBadge');
+            if (data.stress_test_active) {
+                stressTestBadge.className = 'badge bg-warning';
+                stressTestBadge.textContent = 'ACTIVE';
+                document.getElementById('startStressTestBtn').disabled = true;
+                
+                // Add stop button if it doesn't exist
+                if (!document.getElementById('stopStressTestBtn')) {
+                    const stopBtn = document.createElement('button');
+                    stopBtn.id = 'stopStressTestBtn';
+                    stopBtn.className = 'btn btn-danger';
+                    stopBtn.textContent = 'Stop Stress Test';
+                    stopBtn.addEventListener('click', stopStressTest);
+                    
+                    document.getElementById('startStressTestBtn').parentNode.appendChild(stopBtn);
+                }
+            } else {
+                stressTestBadge.className = 'badge bg-secondary';
+                stressTestBadge.textContent = 'INACTIVE';
+                document.getElementById('startStressTestBtn').disabled = false;
+                
+                // Remove stop button if it exists
+                const stopBtn = document.getElementById('stopStressTestBtn');
+                if (stopBtn) {
+                    stopBtn.remove();
+                }
+            }
+        });
+        
+        socket.on('stress_test_result', function(data) {
+            // Add test result to history table
+            const testHistoryTable = document.getElementById('testHistoryTable');
+            
+            // Clear "no history" message if it's there
+            if (testHistoryTable.rows.length === 1 && testHistoryTable.rows[0].cells.length === 1) {
+                testHistoryTable.innerHTML = '';
+            }
+            
+            // Add new row at the top
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${new Date().toLocaleTimeString()}</td>
+                <td>${data.signals_sent}</td>
+                <td>${data.signals_per_second.toFixed(2)}/s</td>
+            `;
+            
+            testHistoryTable.insertBefore(row, testHistoryTable.firstChild);
+            
+            // Limit to 10 entries
+            if (testHistoryTable.rows.length > 10) {
+                testHistoryTable.removeChild(testHistoryTable.lastChild);
+            }
+        });
+
+        // Toggle auto-healing
+        document.getElementById('autoHealingSwitch').addEventListener('change', function() {
+            fetch('/api/toggle-auto-healing', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    enabled: this.checked
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error toggling auto-healing: ' + data.error);
+                    this.checked = !this.checked; // Revert the toggle if there was an error
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error toggling auto-healing');
+                this.checked = !this.checked; // Revert the toggle if there was an error
+            });
+        });
+        
+        // Trigger manual healing action
+        document.getElementById('triggerHealingBtn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to trigger a manual healing action?')) {
+                fetch('/api/trigger-healing', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Healing action triggered successfully');
+                    } else {
+                        alert('Error triggering healing action: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error triggering healing action');
+                });
+            }
+        });
+        
+        // Reset queue
+        document.getElementById('resetQueueBtn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset the signal queue? This will clear all active signals.')) {
+                fetch('/api/reset-queue', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Queue reset successfully');
+                    } else {
+                        alert('Error resetting queue: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error resetting queue');
+                });
+            }
+        });
+        
+        // Start stress test
+        document.getElementById('startStressTestBtn').addEventListener('click', startStressTest);
+        
+        function startStressTest() {
+            const signalCount = document.getElementById('signalCount').value;
+            const signalInterval = document.getElementById('signalInterval').value;
+            const confidenceRange = document.getElementById('confidenceRange').value;
+            
+            fetch('/api/start-stress-test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    signal_count: signalCount,
+                    signal_interval_ms: signalInterval,
+                    confidence_range: confidenceRange
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error starting stress test: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error starting stress test');
+            });
+        }
+        
+        // Stop stress test function (attached dynamically to button)
+        function stopStressTest() {
+            fetch('/api/stop-stress-test', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error stopping stress test: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error stopping stress test');
+            });
+        }
+
+        // Poll for updates every 5 seconds (fallback if WebSockets not available)
+        setInterval(() => {
+            fetch('/api/queue-metrics')
+                .then(response => response.json())
+                .then(data => {
+                    // We'll use the same handler as for WebSocket events
+                    if (!socket.connected) {
+                        socket.emit('queue_metrics', data);
+                    }
+                })
+                .catch(error => console.error('Error fetching metrics:', error));
+        }, 5000);
+    });
+</script>
+{% endblock %}

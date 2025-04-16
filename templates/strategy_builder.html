@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/strategy_builder.css">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">🧩 Interactive Strategy Builder</h2>
+  
+  <div class="row">
+    <!-- Left Panel: Components -->
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-header bg-dark">
+          <h5 class="card-title mb-0">Components</h5>
+        </div>
+        <div class="card-body p-2" style="height: 70vh; overflow-y: auto;">
+          <!-- Component Categories -->
+          <div class="accordion" id="componentAccordion">
+            <!-- Indicators Section -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingIndicators">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIndicators" aria-expanded="true" aria-controls="collapseIndicators">
+                  📊 Indicators
+                </button>
+              </h2>
+              <div id="collapseIndicators" class="accordion-collapse collapse show" aria-labelledby="headingIndicators" data-bs-parent="#componentAccordion">
+                <div class="accordion-body p-2">
+                  <div class="components-list indicators-list">
+                    <!-- Components will be inserted here from JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Filters Section -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingFilters">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFilters" aria-expanded="false" aria-controls="collapseFilters">
+                  🔍 Filters
+                </button>
+              </h2>
+              <div id="collapseFilters" class="accordion-collapse collapse" aria-labelledby="headingFilters" data-bs-parent="#componentAccordion">
+                <div class="accordion-body p-2">
+                  <div class="components-list filters-list">
+                    <!-- Components will be inserted here from JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Conditions Section -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingConditions">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConditions" aria-expanded="false" aria-controls="collapseConditions">
+                  ⚖️ Conditions
+                </button>
+              </h2>
+              <div id="collapseConditions" class="accordion-collapse collapse" aria-labelledby="headingConditions" data-bs-parent="#componentAccordion">
+                <div class="accordion-body p-2">
+                  <div class="components-list conditions-list">
+                    <!-- Components will be inserted here from JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Actions Section -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingActions">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseActions" aria-expanded="false" aria-controls="collapseActions">
+                  🚀 Actions
+                </button>
+              </h2>
+              <div id="collapseActions" class="accordion-collapse collapse" aria-labelledby="headingActions" data-bs-parent="#componentAccordion">
+                <div class="accordion-body p-2">
+                  <div class="components-list actions-list">
+                    <!-- Components will be inserted here from JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Middle Panel: Canvas -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-dark d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Strategy Canvas</h5>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-light" id="validateStrategy">Validate</button>
+            <button class="btn btn-sm btn-outline-light" id="clearCanvas">Clear</button>
+          </div>
+        </div>
+        <div class="card-body p-0" style="height: 70vh; overflow: hidden; position: relative;">
+          <div id="strategyCanvas" class="h-100 w-100 d-flex flex-column align-items-center pt-3" style="background-color: #1e1e1e; overflow: auto;">
+            <!-- Strategy flow will be built here -->
+            <div class="canvas-placeholder text-center text-muted p-5">
+              <i class="bi bi-arrow-left-circle" style="font-size: 2rem;"></i>
+              <p class="mt-2">Drag components from the left panel to build your strategy</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Properties Panel -->
+      <div class="card mt-3">
+        <div class="card-header bg-dark">
+          <h5 class="card-title mb-0">Properties</h5>
+        </div>
+        <div class="card-body" id="propertiesPanel" style="max-height: 15vh; overflow-y: auto;">
+          <p class="text-muted">Select a component to edit its properties</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right Panel: Controls -->
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-header bg-dark">
+          <h5 class="card-title mb-0">Strategy Control</h5>
+        </div>
+        <div class="card-body">
+          <form id="strategyForm">
+            <div class="mb-3">
+              <label for="strategyName" class="form-label">Strategy Name</label>
+              <input type="text" class="form-control" id="strategyName" placeholder="My OG Strategy">
+            </div>
+            
+            <div class="mb-3">
+              <label for="strategyDescription" class="form-label">Description</label>
+              <textarea class="form-control" id="strategyDescription" rows="2"></textarea>
+            </div>
+            
+            <div class="mb-3">
+              <label for="strategyType" class="form-label">Strategy Type</label>
+              <select class="form-select" id="strategyType">
+                <option value="options">Options</option>
+                <option value="equity">Equity</option>
+                <option value="crypto">Crypto</option>
+              </select>
+            </div>
+            
+            <div class="mb-3">
+              <label for="timeframe" class="form-label">Default Timeframe</label>
+              <select class="form-select" id="timeframe">
+                <option value="1m">1 Minute</option>
+                <option value="5m">5 Minutes</option>
+                <option value="15m">15 Minutes</option>
+                <option value="1h">1 Hour</option>
+                <option value="4h">4 Hours</option>
+                <option value="1d" selected>1 Day</option>
+              </select>
+            </div>
+            
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="activateStrategy">
+              <label class="form-check-label" for="activateStrategy">Activate After Saving</label>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-primary" id="saveStrategy">Save Strategy</button>
+              <button type="button" class="btn btn-outline-info" id="testStrategy">Test Run</button>
+            </div>
+          </form>
+          
+          <hr>
+          
+          <!-- Templates Section -->
+          <h6>Load Template</h6>
+          <select class="form-select mb-3" id="templateSelect">
+            <option value="">Select a template...</option>
+            <option value="ogStrategy">OG Strategy Template</option>
+            <option value="ogOptionsStrategy">OG Options Strategy Template</option>
+            <option value="custom">My Custom Strategies</option>
+          </select>
+          <div class="d-grid">
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="loadTemplate">Load Selected Template</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Strategy Output Preview -->
+      <div class="card mt-3">
+        <div class="card-header bg-dark">
+          <h5 class="card-title mb-0">Output Preview</h5>
+        </div>
+        <div class="card-body">
+          <pre id="strategyOutput" class="bg-dark text-light p-2 rounded" style="max-height: 15vh; overflow-y: auto; font-size: 0.8rem;">// Strategy output will appear here</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Component Configuration Modal -->
+<div class="modal fade" id="componentConfigModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="configModalLabel">Configure Component</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="componentConfigForm">
+        <!-- Dynamic form content will be inserted here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveComponentConfig">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Component Templates (Hidden) -->
+<div id="componentTemplates" style="display: none;">
+  <div class="component-item" data-component-type="indicator" data-component-id="">
+    <div class="component-header">
+      <span class="component-title"></span>
+      <div class="component-controls">
+        <button class="btn btn-sm btn-outline-light component-config" title="Configure"><i class="bi bi-gear"></i></button>
+        <button class="btn btn-sm btn-outline-danger component-remove" title="Remove"><i class="bi bi-x"></i></button>
+      </div>
+    </div>
+    <div class="component-body"></div>
+    <div class="component-footer">
+      <div class="connection-points">
+        <div class="connection-output"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Strategy JS -->
+<script src="/static/js/strategy_templates.js"></script>
+<script src="/static/js/strategy_builder.js"></script>
+{% endblock %}

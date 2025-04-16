@@ -1,0 +1,752 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | {{ module.title }}{% endblock %}
+
+{% block head %}
+<style>
+    .progress-sm {
+        height: 6px;
+    }
+    
+    .module-navigation {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .module-navigation a {
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .module-navigation a:hover {
+        color: var(--text-primary);
+    }
+    
+    .module-content {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .activity-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        margin-bottom: 20px;
+    }
+    
+    .activity-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .activity-card.completed {
+        border-left-color: var(--success-color);
+    }
+    
+    .activity-card.active {
+        border-left-color: var(--accent-color);
+    }
+    
+    .activity-card .card-body {
+        padding: 20px;
+    }
+    
+    .activity-status {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .activity-status.completed {
+        background-color: var(--success-color);
+        color: white;
+    }
+    
+    .activity-status.active {
+        background-color: var(--accent-color);
+        color: white;
+    }
+    
+    .activity-status.pending {
+        background-color: var(--text-secondary);
+        opacity: 0.3;
+    }
+    
+    .quiz-container .card {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .quiz-option {
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        background-color: rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .quiz-option:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .quiz-option.selected {
+        background-color: rgba(79, 70, 229, 0.2);
+        border: 1px solid rgba(79, 70, 229, 0.5);
+    }
+    
+    .quiz-option.correct {
+        background-color: rgba(22, 163, 74, 0.2);
+        border: 1px solid rgba(22, 163, 74, 0.5);
+    }
+    
+    .quiz-option.incorrect {
+        background-color: rgba(220, 38, 38, 0.2);
+        border: 1px solid rgba(220, 38, 38, 0.5);
+    }
+    
+    .markdown-content {
+        line-height: 1.6;
+    }
+    
+    .markdown-content h1, 
+    .markdown-content h2, 
+    .markdown-content h3, 
+    .markdown-content h4, 
+    .markdown-content h5, 
+    .markdown-content h6 {
+        margin-top: 1.5em;
+        margin-bottom: 0.75em;
+    }
+    
+    .markdown-content h1 {
+        font-size: 1.8rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 0.3em;
+    }
+    
+    .markdown-content h2 {
+        font-size: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 0.3em;
+    }
+    
+    .markdown-content p {
+        margin-bottom: 1em;
+    }
+    
+    .markdown-content ul, 
+    .markdown-content ol {
+        margin-bottom: 1em;
+        padding-left: 2em;
+    }
+    
+    .markdown-content li {
+        margin-bottom: 0.5em;
+    }
+    
+    .markdown-content code {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9em;
+    }
+    
+    .markdown-content pre {
+        background-color: rgba(0, 0, 0, 0.3);
+        padding: 1em;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin-bottom: 1em;
+    }
+    
+    .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+        color: #e6e6e6;
+    }
+    
+    .markdown-content blockquote {
+        border-left: 4px solid var(--accent-color);
+        padding-left: 1em;
+        margin-bottom: 1em;
+        color: var(--text-secondary);
+    }
+    
+    .markdown-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1em;
+    }
+    
+    .markdown-content th, 
+    .markdown-content td {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+    }
+    
+    .markdown-content th {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Module Navigation -->
+    <div class="module-navigation">
+        <a href="{{ url_for('strategy_coach.learning_paths') }}" class="me-3">
+            <i class="fa fa-graduation-cap"></i> Learning Paths
+        </a>
+        <i class="fa fa-angle-right text-secondary mx-2"></i>
+        <a href="{{ url_for('strategy_coach.view_learning_path', path_id=learning_path.id) }}" class="me-3">
+            {{ learning_path.name }}
+        </a>
+        <i class="fa fa-angle-right text-secondary mx-2"></i>
+        <span>{{ module.title }}</span>
+    </div>
+    
+    <!-- Module Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">{{ module.title }}</h2>
+            <p class="text-secondary">{{ module.description }}</p>
+        </div>
+        <div>
+            <span class="badge bg-{{ 'success' if module.status == 'completed' else 'primary' if module.status == 'in_progress' else 'secondary' }} px-3 py-2">
+                {{ module.status|replace('_', ' ')|title }}
+            </span>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div class="mb-4">
+        {% set completed = module.activities|selectattr('completed', 'equalto', true)|list|length %}
+        {% set total = module.activities|length %}
+        {% set percentage = (completed / total * 100) if total > 0 else 0 %}
+        
+        <div class="d-flex justify-content-between mb-2">
+            <span>Progress</span>
+            <span>{{ completed }} / {{ total }} Activities Completed</span>
+        </div>
+        <div class="progress progress-sm">
+            <div class="progress-bar bg-{{ 'success' if percentage == 100 else 'primary' }}" 
+                 role="progressbar" 
+                 style="width: {{ percentage }}%" 
+                 aria-valuenow="{{ percentage }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Module Content -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="module-content markdown-content">
+                {% if module.content %}
+                    {{ module.content|markdown }}
+                {% else %}
+                    <p class="text-center text-secondary">No content available for this module.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Activities List -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Activities</h5>
+                </div>
+                <div class="card-body p-3">
+                    {% if module.activities %}
+                        {% for activity in module.activities %}
+                            <div class="activity-card card {{ 'completed' if activity.completed else 'active' if loop.index0 == 0 and not activity.completed else '' }}">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start">
+                                        <div class="activity-status {{ 'completed' if activity.completed else 'active' if loop.index0 == 0 and not activity.completed else 'pending' }} me-3 mt-1">
+                                            {% if activity.completed %}
+                                                <i class="fa fa-check"></i>
+                                            {% elif loop.index0 == 0 and not activity.completed %}
+                                                <i class="fa fa-play"></i>
+                                            {% else %}
+                                                <i class="fa fa-circle"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">{{ activity.title }}</h6>
+                                            <p class="text-secondary small mb-2">{{ activity.description }}</p>
+                                            
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-dark me-2">
+                                                    <i class="fa fa-{{ 'book-open' if activity.activity_type == 'reading' else 'question' if activity.activity_type == 'quiz' else 'flask' if activity.activity_type == 'exercise' else 'chart-column' if activity.activity_type == 'analysis' else 'dumbbell' if activity.activity_type == 'practice' else 'tasks' }} me-1"></i>
+                                                    {{ activity.activity_type|title }}
+                                                </span>
+                                                {% if activity.completed %}
+                                                    <span class="badge bg-success">Completed</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if loop.index0 == 0 and not activity.completed %}
+                                                <div class="mt-3">
+                                                    <button class="btn btn-sm btn-primary start-activity-btn" data-activity-id="{{ activity.id }}" data-activity-type="{{ activity.activity_type }}">
+                                                        Start Activity
+                                                    </button>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center p-4">
+                            <i class="fa fa-tasks fa-3x text-secondary mb-3"></i>
+                            <h6 class="mb-2">No Activities Yet</h6>
+                            <p class="text-secondary small">This module doesn't have any activities yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Module Navigation -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Module Navigation</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        {% if module.order > 1 %}
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                <i class="fa fa-arrow-left me-1"></i> Previous Module
+                            </a>
+                        {% else %}
+                            <button class="btn btn-sm btn-outline-secondary" disabled>
+                                <i class="fa fa-arrow-left me-1"></i> Previous Module
+                            </button>
+                        {% endif %}
+                        
+                        {% if module.order < learning_path.modules|length %}
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                Next Module <i class="fa fa-arrow-right ms-1"></i>
+                            </a>
+                        {% else %}
+                            <button class="btn btn-sm btn-outline-secondary" disabled>
+                                Next Module <i class="fa fa-arrow-right ms-1"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{{ url_for('strategy_coach.view_learning_path', path_id=learning_path.id) }}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fa fa-list me-1"></i> Back to Learning Path
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activity Content Area (hidden by default) -->
+    <div id="activityContentArea" class="my-4 d-none">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" id="activityTitle">Activity Title</h5>
+                <button type="button" class="btn-close text-white" id="closeActivityBtn"></button>
+            </div>
+            <div class="card-body">
+                <!-- Reading Activity Template -->
+                <div id="readingActivity" class="activity-content d-none">
+                    <div class="markdown-content" id="readingContent"></div>
+                    
+                    <div class="text-end mt-4">
+                        <button class="btn btn-success" id="completeReadingBtn">
+                            <i class="fa fa-check me-2"></i> Mark as Completed
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quiz Activity Template -->
+                <div id="quizActivity" class="activity-content d-none">
+                    <div class="quiz-container" id="quizContainer"></div>
+                    
+                    <div class="text-end mt-4">
+                        <button class="btn btn-primary" id="submitQuizBtn">
+                            <i class="fa fa-paper-plane me-2"></i> Submit Answers
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Exercise Activity Template -->
+                <div id="exerciseActivity" class="activity-content d-none">
+                    <div class="markdown-content" id="exerciseContent"></div>
+                    
+                    <div class="form-group mt-4">
+                        <label for="exerciseSubmission" class="form-label">Your Solution</label>
+                        <textarea class="form-control" id="exerciseSubmission" rows="5" placeholder="Enter your solution or notes here..."></textarea>
+                    </div>
+                    
+                    <div class="text-end mt-4">
+                        <button class="btn btn-success" id="submitExerciseBtn">
+                            <i class="fa fa-check me-2"></i> Submit Exercise
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Analysis Activity Template -->
+                <div id="analysisActivity" class="activity-content d-none">
+                    <div class="markdown-content" id="analysisContent"></div>
+                    
+                    <div class="form-group mt-4">
+                        <label for="analysisSubmission" class="form-label">Your Analysis</label>
+                        <textarea class="form-control" id="analysisSubmission" rows="5" placeholder="Enter your analysis here..."></textarea>
+                    </div>
+                    
+                    <div class="text-end mt-4">
+                        <button class="btn btn-success" id="submitAnalysisBtn">
+                            <i class="fa fa-check me-2"></i> Submit Analysis
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Practice Activity Template -->
+                <div id="practiceActivity" class="activity-content d-none">
+                    <div class="markdown-content" id="practiceContent"></div>
+                    
+                    <div class="form-group mt-4">
+                        <label for="practiceSubmission" class="form-label">Your Practice Results</label>
+                        <textarea class="form-control" id="practiceSubmission" rows="5" placeholder="Describe your practice results here..."></textarea>
+                    </div>
+                    
+                    <div class="text-end mt-4">
+                        <button class="btn btn-success" id="submitPracticeBtn">
+                            <i class="fa fa-check me-2"></i> Complete Practice
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Markdown converter
+        const converter = new showdown.Converter();
+        
+        // Activity data
+        const activities = {{ module.activities|tojson }};
+        let currentActivity = null;
+        
+        // Activity related DOM elements
+        const activityContentArea = document.getElementById('activityContentArea');
+        
+        // Start activity button click
+        const startActivityBtns = document.querySelectorAll('.start-activity-btn');
+        startActivityBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const activityId = parseInt(this.dataset.activityId);
+                const activityType = this.dataset.activityType;
+                
+                // Find the activity in our activities array
+                currentActivity = activities.find(activity => activity.id === activityId);
+                
+                if (currentActivity) {
+                    showActivity(currentActivity);
+                }
+            });
+        });
+        
+        // Close activity button
+        document.getElementById('closeActivityBtn').addEventListener('click', function() {
+            activityContentArea.classList.add('d-none');
+            
+            // Hide all activity content
+            document.querySelectorAll('.activity-content').forEach(el => {
+                el.classList.add('d-none');
+            });
+            
+            currentActivity = null;
+        });
+        
+        // Complete reading button
+        document.getElementById('completeReadingBtn').addEventListener('click', function() {
+            if (currentActivity) {
+                markActivityCompleted(currentActivity.id);
+            }
+        });
+        
+        // Submit quiz button
+        document.getElementById('submitQuizBtn').addEventListener('click', function() {
+            if (currentActivity) {
+                const quizData = JSON.parse(currentActivity.content);
+                const questions = quizData.questions;
+                
+                // Check answers
+                let correctAnswers = 0;
+                const submissions = [];
+                
+                questions.forEach((question, index) => {
+                    const selectedOption = document.querySelector(`input[name="quiz-${index}"]:checked`);
+                    
+                    if (selectedOption) {
+                        const selectedIndex = parseInt(selectedOption.value);
+                        const isCorrect = selectedIndex === question.correct;
+                        
+                        if (isCorrect) {
+                            correctAnswers++;
+                        }
+                        
+                        // Highlight correct and incorrect answers
+                        document.querySelectorAll(`.quiz-options-${index} .quiz-option`).forEach((option, optionIndex) => {
+                            if (optionIndex === question.correct) {
+                                option.classList.add('correct');
+                            } else if (optionIndex === selectedIndex && !isCorrect) {
+                                option.classList.add('incorrect');
+                            }
+                        });
+                        
+                        submissions.push({
+                            questionIndex: index,
+                            selectedOption: selectedIndex,
+                            isCorrect: isCorrect
+                        });
+                    }
+                });
+                
+                // Calculate score
+                const score = questions.length > 0 ? (correctAnswers / questions.length) * 100 : 0;
+                
+                // Display score
+                const scoreHtml = `
+                    <div class="alert ${score >= 70 ? 'alert-success' : 'alert-warning'} mt-4">
+                        <h5 class="mb-2">Quiz Results</h5>
+                        <p>You got ${correctAnswers} out of ${questions.length} questions correct (${Math.round(score)}%).</p>
+                        
+                        ${score >= 70 ? 
+                            '<p class="mb-0">Great job! You passed the quiz.</p>' : 
+                            '<p class="mb-0">You might want to review the material and try again.</p>'
+                        }
+                    </div>
+                `;
+                
+                document.getElementById('quizContainer').insertAdjacentHTML('beforeend', scoreHtml);
+                
+                // Disable the submit button
+                this.disabled = true;
+                
+                // If score is 70% or more, mark as completed
+                if (score >= 70) {
+                    const completionData = {
+                        score: score,
+                        submissions: submissions
+                    };
+                    
+                    markActivityCompleted(currentActivity.id, completionData);
+                }
+            }
+        });
+        
+        // Submit exercise button
+        document.getElementById('submitExerciseBtn').addEventListener('click', function() {
+            if (currentActivity) {
+                const submission = document.getElementById('exerciseSubmission').value.trim();
+                
+                if (submission) {
+                    const completionData = {
+                        submission: submission
+                    };
+                    
+                    markActivityCompleted(currentActivity.id, completionData);
+                } else {
+                    alert('Please enter your solution before submitting.');
+                }
+            }
+        });
+        
+        // Submit analysis button
+        document.getElementById('submitAnalysisBtn').addEventListener('click', function() {
+            if (currentActivity) {
+                const submission = document.getElementById('analysisSubmission').value.trim();
+                
+                if (submission) {
+                    const completionData = {
+                        analysis: submission
+                    };
+                    
+                    markActivityCompleted(currentActivity.id, completionData);
+                } else {
+                    alert('Please enter your analysis before submitting.');
+                }
+            }
+        });
+        
+        // Submit practice button
+        document.getElementById('submitPracticeBtn').addEventListener('click', function() {
+            if (currentActivity) {
+                const submission = document.getElementById('practiceSubmission').value.trim();
+                
+                if (submission) {
+                    const completionData = {
+                        practice_results: submission
+                    };
+                    
+                    markActivityCompleted(currentActivity.id, completionData);
+                } else {
+                    alert('Please describe your practice results before submitting.');
+                }
+            }
+        });
+        
+        // Helper function to show an activity
+        function showActivity(activity) {
+            // Set activity title
+            document.getElementById('activityTitle').textContent = activity.title;
+            
+            // Hide all activity content
+            document.querySelectorAll('.activity-content').forEach(el => {
+                el.classList.add('d-none');
+            });
+            
+            // Show the appropriate activity content based on type
+            if (activity.activity_type === 'reading') {
+                document.getElementById('readingActivity').classList.remove('d-none');
+                document.getElementById('readingContent').innerHTML = converter.makeHtml(activity.content);
+            } else if (activity.activity_type === 'quiz') {
+                document.getElementById('quizActivity').classList.remove('d-none');
+                renderQuiz(activity);
+            } else if (activity.activity_type === 'exercise') {
+                document.getElementById('exerciseActivity').classList.remove('d-none');
+                document.getElementById('exerciseContent').innerHTML = converter.makeHtml(activity.content);
+            } else if (activity.activity_type === 'analysis') {
+                document.getElementById('analysisActivity').classList.remove('d-none');
+                document.getElementById('analysisContent').innerHTML = converter.makeHtml(activity.content);
+            } else if (activity.activity_type === 'practice') {
+                document.getElementById('practiceActivity').classList.remove('d-none');
+                document.getElementById('practiceContent').innerHTML = converter.makeHtml(activity.content);
+            }
+            
+            // Show the activity content area
+            activityContentArea.classList.remove('d-none');
+            
+            // Scroll to the activity content area
+            activityContentArea.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Helper function to render a quiz
+        function renderQuiz(activity) {
+            const quizContainer = document.getElementById('quizContainer');
+            quizContainer.innerHTML = ''; // Clear container
+            
+            try {
+                const quizData = JSON.parse(activity.content);
+                const questions = quizData.questions;
+                
+                if (!questions || !Array.isArray(questions) || questions.length === 0) {
+                    quizContainer.innerHTML = '<div class="alert alert-warning">Invalid quiz data</div>';
+                    return;
+                }
+                
+                // Render each question
+                questions.forEach((question, index) => {
+                    const questionHtml = `
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">Question ${index + 1}</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-3">${question.question}</p>
+                                
+                                <div class="quiz-options-${index}">
+                                    ${question.options.map((option, optionIndex) => `
+                                        <div class="quiz-option" onclick="selectOption(this, ${index}, ${optionIndex})">
+                                            <div class="d-flex align-items-center">
+                                                <input type="radio" name="quiz-${index}" value="${optionIndex}" id="option-${index}-${optionIndex}" class="me-3">
+                                                <label for="option-${index}-${optionIndex}" class="m-0 flex-grow-1">${option}</label>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    quizContainer.insertAdjacentHTML('beforeend', questionHtml);
+                });
+            } catch (e) {
+                console.error('Error parsing quiz data:', e);
+                quizContainer.innerHTML = '<div class="alert alert-danger">Error loading quiz</div>';
+            }
+        }
+        
+        // Helper function to mark an activity as completed
+        function markActivityCompleted(activityId, completionData = null) {
+            fetch(`/strategy-coach/activity/${activityId}/complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    completion_data: completionData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const successHtml = `
+                        <div class="alert alert-success mt-4">
+                            <i class="fa fa-check-circle me-2"></i>
+                            Activity marked as completed!
+                        </div>
+                    `;
+                    
+                    const activityContainer = document.querySelector('.activity-content:not(.d-none)');
+                    activityContainer.insertAdjacentHTML('beforeend', successHtml);
+                    
+                    // Disable buttons
+                    activityContainer.querySelectorAll('button').forEach(btn => {
+                        btn.disabled = true;
+                    });
+                    
+                    // Update UI to show completed status
+                    document.querySelector(`.activity-card[data-activity-id="${activityId}"]`)?.classList.add('completed');
+                    
+                    // Reload the page after a delay to show updated progress
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    console.error('Error marking activity as completed:', data.error);
+                    alert('Error marking activity as completed. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error marking activity as completed:', error);
+                alert('Error marking activity as completed. Please try again.');
+            });
+        }
+    });
+    
+    // Quiz option selection function (must be global for onclick access)
+    function selectOption(element, questionIndex, optionIndex) {
+        // Select the radio input
+        const radio = element.querySelector(`input[name="quiz-${questionIndex}"]`);
+        radio.checked = true;
+        
+        // Update styling
+        document.querySelectorAll(`.quiz-options-${questionIndex} .quiz-option`).forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        element.classList.add('selected');
+    }
+</script>
+{% endblock %}

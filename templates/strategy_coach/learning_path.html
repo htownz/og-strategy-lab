@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | {{ learning_path.name }}{% endblock %}
+
+{% block head %}
+<style>
+    .module-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .module-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .module-card.not-started {
+        border-left-color: var(--text-secondary);
+    }
+    
+    .module-card.in-progress {
+        border-left-color: var(--accent-color);
+    }
+    
+    .module-card.completed {
+        border-left-color: var(--success-color);
+    }
+    
+    .module-card.locked {
+        opacity: 0.7;
+    }
+    
+    .progress-sm {
+        height: 6px;
+    }
+    
+    .skill-level-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background-color: rgba(79, 70, 229, 0.1);
+        margin-right: 10px;
+    }
+    
+    .progress-circle {
+        position: relative;
+        width: 120px;
+        height: 120px;
+    }
+    
+    .progress-circle svg {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .progress-circle svg circle {
+        fill: none;
+        stroke-width: 8;
+        stroke-linecap: round;
+        transform: translate(10px, 10px);
+    }
+    
+    .progress-circle svg circle.background {
+        stroke: rgba(255, 255, 255, 0.1);
+    }
+    
+    .progress-circle svg circle.progress {
+        stroke: var(--accent-color);
+        stroke-dasharray: 314;
+    }
+    
+    .progress-circle-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+    
+    .focus-area-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        background-color: rgba(79, 70, 229, 0.1);
+        color: var(--accent-color);
+        display: inline-block;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.learning_paths') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">{{ learning_path.name }}</h2>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="skill-level-indicator">
+                    <i class="fa fa-signal me-2 text-accent"></i>
+                    <span>{{ learning_path.skill_level|title }}</span>
+                </div>
+                <span class="text-secondary small">Created {{ learning_path.created_at|datetime }}</span>
+            </div>
+        </div>
+        
+        <div>
+            <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="btn btn-outline-primary me-2">
+                <i class="fa fa-graduation-cap me-2"></i> Coach Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Path Overview Card -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <div class="progress-circle mx-auto">
+                                <svg viewBox="0 0 100 100">
+                                    <circle class="background" cx="40" cy="40" r="38"></circle>
+                                    <circle class="progress" cx="40" cy="40" r="38" 
+                                            stroke-dashoffset="{{ 314 - (learning_path.progress / 100) * 314 }}">
+                                    </circle>
+                                </svg>
+                                <div class="progress-circle-text">
+                                    <h2 class="mb-0">{{ learning_path.progress|int }}%</h2>
+                                    <small class="text-secondary">Complete</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-9">
+                            <p>{{ learning_path.description }}</p>
+                            
+                            <h6 class="text-accent mb-2">Focus Areas</h6>
+                            <div class="mb-3">
+                                {% for area in learning_path.focus_areas %}
+                                <span class="focus-area-badge">{{ area|replace('_', ' ')|title }}</span>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="d-flex align-items-center">
+                                <div class="me-4">
+                                    <span class="text-secondary small d-block">Modules</span>
+                                    <span class="h5 mb-0">{{ learning_path.modules|length }}</span>
+                                </div>
+                                <div class="me-4">
+                                    <span class="text-secondary small d-block">Completed</span>
+                                    <span class="h5 mb-0">{{ learning_path.modules|selectattr('status', 'equalto', 'completed')|list|length }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-secondary small d-block">In Progress</span>
+                                    <span class="h5 mb-0">{{ learning_path.modules|selectattr('status', 'equalto', 'in_progress')|list|length }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modules List -->
+    <div class="row">
+        <div class="col-md-12">
+            <h4 class="mb-3">Learning Modules</h4>
+            
+            {% if learning_path.modules %}
+                {% for module in learning_path.modules %}
+                <div class="card module-card {{ module.status }} mb-3 {{ 'locked' if module.unlock_criteria and not module.status in ['in_progress', 'completed'] else '' }}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-1 text-center">
+                                {% if module.status == 'completed' %}
+                                    <span class="badge rounded-circle bg-success p-3">
+                                        <i class="fa fa-check"></i>
+                                    </span>
+                                {% elif module.status == 'in_progress' %}
+                                    <span class="badge rounded-circle bg-primary p-3">
+                                        <i class="fa fa-sync-alt"></i>
+                                    </span>
+                                {% elif module.unlock_criteria %}
+                                    <span class="badge rounded-circle bg-secondary p-3">
+                                        <i class="fa fa-lock"></i>
+                                    </span>
+                                {% else %}
+                                    <span class="badge rounded-circle bg-secondary p-3">
+                                        <i class="fa fa-book"></i>
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-9">
+                                <h5 class="card-title mb-1">{{ module.title }}</h5>
+                                <p class="text-secondary mb-2">{{ module.description }}</p>
+                                
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <span class="badge bg-{{ 'success' if module.status == 'completed' else 'primary' if module.status == 'in_progress' else 'secondary' }}">
+                                            {{ module.status|replace('_', ' ')|title }}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="me-3">
+                                        <span class="badge bg-dark">
+                                            <i class="fa fa-list-check me-1"></i> {{ module.activities|length }} Activities
+                                        </span>
+                                    </div>
+                                    
+                                    <div>
+                                        <span class="badge bg-dark">
+                                            <i class="fa fa-clock me-1"></i> {{ module.activities|length * 15 }} mins
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {% if module.activities %}
+                                <div class="mt-2">
+                                    <div class="progress progress-sm">
+                                        {% set completed = module.activities|selectattr('completed', 'equalto', true)|list|length %}
+                                        {% set percentage = (completed / module.activities|length) * 100 %}
+                                        <div class="progress-bar bg-{{ 'success' if percentage == 100 else 'primary' if percentage > 0 else 'secondary' }}" 
+                                             role="progressbar" 
+                                             style="width: {{ percentage }}%" 
+                                             aria-valuenow="{{ percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <small class="text-secondary">{{ completed }} of {{ module.activities|length }} activities completed</small>
+                                        <small class="text-secondary">{{ percentage|int }}%</small>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-2 text-end">
+                                {% if module.unlock_criteria and not module.status in ['in_progress', 'completed'] %}
+                                    <button class="btn btn-sm btn-outline-secondary" disabled>
+                                        <i class="fa fa-lock me-1"></i> Locked
+                                    </button>
+                                {% else %}
+                                    <a href="{{ url_for('strategy_coach.view_module', path_id=learning_path.id, module_id=module.id) }}" class="btn btn-sm btn-{{ 'success' if module.status == 'completed' else 'primary' }}">
+                                        {% if module.status == 'completed' %}
+                                            <i class="fa fa-refresh me-1"></i> Review
+                                        {% elif module.status == 'in_progress' %}
+                                            <i class="fa fa-arrow-right me-1"></i> Continue
+                                        {% else %}
+                                            <i class="fa fa-play me-1"></i> Start
+                                        {% endif %}
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center p-5">
+                        <i class="fa fa-book fa-4x text-secondary mb-3"></i>
+                        <h5 class="mb-3">No Modules Available</h5>
+                        <p class="text-secondary">This learning path doesn't have any modules yet.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

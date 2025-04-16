@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-light">
+                    <h4 class="mb-0">Create Account</h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" id="registrationForm" novalidate>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   minlength="3" maxlength="64" required>
+                            <div class="invalid-feedback">
+                                Username must be between 3 and 64 characters.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                            <div class="invalid-feedback">
+                                Please provide a valid email address.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                  minlength="8" required>
+                            <div class="form-text">
+                                <small>Password must be at least 8 characters and include uppercase, lowercase, number, and special character.</small>
+                            </div>
+                            <div class="invalid-feedback">
+                                Password doesn't meet complexity requirements.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password_confirm" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="password_confirm" name="password_confirm" required>
+                            <div class="invalid-feedback">
+                                Passwords do not match.
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="progress" style="height: 10px">
+                                <div id="password-strength" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small id="password-strength-text" class="form-text text-muted">Password strength: None</small>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="mb-0">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registrationForm');
+    const password = document.getElementById('password');
+    const passwordConfirm = document.getElementById('password_confirm');
+    const strengthBar = document.getElementById('password-strength');
+    const strengthText = document.getElementById('password-strength-text');
+    
+    // Validate password complexity
+    function checkPasswordStrength(password) {
+        let strength = 0;
+        const feedback = [];
+        
+        // Length check
+        if (password.length >= 8) {
+            strength += 25;
+        } else {
+            feedback.push("at least 8 characters");
+        }
+        
+        // Contains lowercase letter
+        if (password.match(/[a-z]/)) {
+            strength += 25;
+        } else {
+            feedback.push("lowercase letter");
+        }
+        
+        // Contains uppercase letter
+        if (password.match(/[A-Z]/)) {
+            strength += 25;
+        } else {
+            feedback.push("uppercase letter");
+        }
+        
+        // Contains number or special character
+        if (password.match(/[0-9]/) || password.match(/[^a-zA-Z0-9]/)) {
+            strength += 25;
+        } else {
+            feedback.push("number or special character");
+        }
+        
+        // Update UI
+        strengthBar.style.width = strength + '%';
+        
+        // Set color based on strength
+        if (strength <= 25) {
+            strengthBar.className = 'progress-bar bg-danger';
+            strengthText.textContent = 'Password strength: Weak';
+        } else if (strength <= 50) {
+            strengthBar.className = 'progress-bar bg-warning';
+            strengthText.textContent = 'Password strength: Fair';
+        } else if (strength <= 75) {
+            strengthBar.className = 'progress-bar bg-info';
+            strengthText.textContent = 'Password strength: Good';
+        } else {
+            strengthBar.className = 'progress-bar bg-success';
+            strengthText.textContent = 'Password strength: Strong';
+        }
+        
+        return strength >= 75; // Return true if password is strong enough
+    }
+    
+    // Add real-time validation for password
+    password.addEventListener('input', function() {
+        checkPasswordStrength(this.value);
+        if (passwordConfirm.value) {
+            validatePasswordMatch();
+        }
+    });
+    
+    // Check if passwords match
+    function validatePasswordMatch() {
+        if (password.value !== passwordConfirm.value) {
+            passwordConfirm.setCustomValidity("Passwords do not match");
+            return false;
+        } else {
+            passwordConfirm.setCustomValidity("");
+            return true;
+        }
+    }
+    
+    passwordConfirm.addEventListener('input', validatePasswordMatch);
+    
+    // Form submission validation
+    form.addEventListener('submit', function(event) {
+        const isValid = form.checkValidity() && 
+                       checkPasswordStrength(password.value) && 
+                       validatePasswordMatch();
+        
+        if (!isValid) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        form.classList.add('was-validated');
+    });
+});
+</script>
+{% endblock %}

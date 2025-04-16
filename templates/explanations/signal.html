@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}Signal Explanation{% endblock %}
+
+{% block additional_head %}
+<style>
+    .signal-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .explanation-container {
+        background-color: var(--bs-dark);
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        margin-top: 1.5rem;
+    }
+    .signal-detail {
+        border-left: 3px solid var(--bs-info);
+        padding-left: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .detail-level-btn {
+        transition: all 0.2s;
+    }
+    .detail-level-btn.active {
+        transform: scale(1.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Signal Explanation</h1>
+        <div>
+            <a href="{{ url_for('explanation.explanation_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0" id="signal-title">Loading signal data...</h5>
+                        <span class="badge bg-secondary" id="signal-direction">--</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="signal-loading">
+                        <div class="d-flex justify-content-center my-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading signal data...</span>
+                        </div>
+                    </div>
+                    
+                    <div id="signal-data" style="display: none;">
+                        <div class="signal-detail">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <strong>Symbol:</strong> <span id="signal-symbol">--</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Direction:</strong> <span id="signal-direction-text">--</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Price at Signal:</strong> $<span id="signal-price">--</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <strong>Confidence:</strong> <span id="signal-confidence">--</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Timestamp:</strong> <span id="signal-timestamp">--</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Setup Type:</strong> <span id="signal-setup-type">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>Technical Indicators</h5>
+                            <div class="row mt-3" id="technical-indicators">
+                                <!-- Technical indicators will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>Key Price Levels</h5>
+                            <div class="row mt-3" id="key-levels">
+                                <!-- Key levels will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>Contract Details</h5>
+                            <div class="row mt-3" id="contract-details">
+                                <!-- Contract details will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>AI Explanation</h5>
+                            <div class="d-flex mb-3">
+                                <div class="btn-group" role="group" aria-label="Detail level">
+                                    <button type="button" class="btn btn-outline-primary detail-level-btn" data-level="brief">Brief</button>
+                                    <button type="button" class="btn btn-outline-primary detail-level-btn active" data-level="medium">Medium</button>
+                                    <button type="button" class="btn btn-outline-primary detail-level-btn" data-level="detailed">Detailed</button>
+                                </div>
+                            </div>
+                            
+                            <div id="explanation-loading" style="display: none;">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="spinner-border text-primary me-2" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span>Generating explanation...</span>
+                                </div>
+                            </div>
+                            
+                            <div class="explanation-container" id="explanation-content">
+                                <p class="text-muted">Select a detail level to generate an explanation.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="signal-error" style="display: none;">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Error Loading Signal
+                            <div class="mt-2" id="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const signalId = {{ signal_id }};
+    
+    // Load signal data
+    loadSignalData(signalId);
+    
+    // Detail level buttons
+    $('.detail-level-btn').click(function() {
+        $('.detail-level-btn').removeClass('active');
+        $(this).addClass('active');
+        
+        const detailLevel = $(this).data('level');
+        getExplanation(signalId, detailLevel);
+    });
+    
+    function loadSignalData(id) {
+        $.ajax({
+            url: `/api/signals/${id}`,
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    displaySignalData(response.signal);
+                    // Load a medium-detail explanation by default
+                    getExplanation(id, 'medium');
+                } else {
+                    showError(response.error || 'Failed to load signal data');
+                }
+            },
+            error: function(xhr, status, error) {
+                showError('Unable to connect to the server. Please try again later.');
+            }
+        });
+    }
+    
+    function displaySignalData(signal) {
+        // Hide loading, show data
+        $('#signal-loading').hide();
+        $('#signal-data').show();
+        
+        // Set basic signal data
+        $('#signal-title').text(`${signal.symbol} Signal (#${signal.id})`);
+        $('#signal-symbol').text(signal.symbol);
+        
+        const direction = signal.direction;
+        const directionClass = direction === 'BULLISH' ? 'success' : 'danger';
+        const directionIcon = direction === 'BULLISH' ? 'arrow-up-circle' : 'arrow-down-circle';
+        
+        $('#signal-direction').removeClass('bg-secondary').addClass(`bg-${directionClass}`).text(direction);
+        $('#signal-direction-text').html(`<i class="bi bi-${directionIcon}"></i> ${direction}`);
+        
+        $('#signal-price').text(signal.price_at_signal);
+        $('#signal-confidence').text(`${(signal.confidence * 100).toFixed(0)}%`);
+        
+        const timestamp = new Date(signal.timestamp);
+        $('#signal-timestamp').text(timestamp.toLocaleString());
+        
+        // Parse indicators if it's a string
+        let indicators = signal.indicators;
+        if (typeof indicators === 'string') {
+            try {
+                indicators = JSON.parse(indicators);
+            } catch (e) {
+                indicators = {};
+            }
+        }
+        
+        // Setup type
+        $('#signal-setup-type').text(indicators.setup_type || 'N/A');
+        
+        // Technical indicators
+        const technicalSignals = indicators.technical_signals || {};
+        let techIndicatorsHtml = '';
+        
+        for (const [key, value] of Object.entries(technicalSignals)) {
+            const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const indicatorClass = value ? 'success' : 'secondary';
+            const indicatorIcon = value ? 'check-circle-fill' : 'dash-circle';
+            
+            techIndicatorsHtml += `
+                <div class="col-md-6 col-lg-3 mb-2">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-${indicatorIcon} text-${indicatorClass} me-2"></i>
+                        <span>${formattedKey}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        $('#technical-indicators').html(techIndicatorsHtml || '<div class="col-12"><p class="text-muted">No technical indicators available</p></div>');
+        
+        // Key levels
+        const keyLevels = indicators.key_levels || {};
+        let keyLevelsHtml = '';
+        
+        for (const [key, value] of Object.entries(keyLevels)) {
+            const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            let levelClass = 'info';
+            
+            if (key === 'entry') levelClass = 'primary';
+            if (key === 'stop') levelClass = 'danger';
+            if (key.includes('target')) levelClass = 'success';
+            
+            keyLevelsHtml += `
+                <div class="col-md-6 col-lg-3 mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-${levelClass} me-2">${formattedKey}</span>
+                        <span>$${value}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        $('#key-levels').html(keyLevelsHtml || '<div class="col-12"><p class="text-muted">No key levels available</p></div>');
+        
+        // Contract details
+        const contract = indicators.contract || {};
+        let contractHtml = '';
+        
+        for (const [key, value] of Object.entries(contract)) {
+            const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            contractHtml += `
+                <div class="col-md-6 col-lg-4 mb-2">
+                    <div class="d-flex align-items-center">
+                        <strong class="me-2">${formattedKey}:</strong>
+                        <span>${value}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        $('#contract-details').html(contractHtml || '<div class="col-12"><p class="text-muted">No contract details available</p></div>');
+    }
+    
+    function getExplanation(id, detailLevel) {
+        // Show loading
+        $('#explanation-loading').show();
+        $('#explanation-content').hide();
+        
+        $.ajax({
+            url: `/api/explanations/signal/${id}?detail=${detailLevel}`,
+            method: 'GET',
+            success: function(response) {
+                // Hide loading
+                $('#explanation-loading').hide();
+                $('#explanation-content').show();
+                
+                if (response.success) {
+                    // Format and display the explanation
+                    const explanation = response.data.explanation;
+                    const formattedExplanation = formatMarkdown(explanation);
+                    
+                    $('#explanation-content').html(formattedExplanation);
+                } else {
+                    $('#explanation-content').html(`
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Unable to Generate Explanation
+                            <div class="mt-2">${response.error || 'An error occurred while generating the explanation.'}</div>
+                        </div>
+                    `);
+                }
+            },
+            error: function(xhr, status, error) {
+                // Hide loading
+                $('#explanation-loading').hide();
+                $('#explanation-content').show();
+                
+                $('#explanation-content').html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle-fill"></i> Connection Error
+                        <div class="mt-2">Unable to connect to the server. Please try again later.</div>
+                    </div>
+                `);
+            }
+        });
+    }
+    
+    function showError(message) {
+        $('#signal-loading').hide();
+        $('#signal-data').hide();
+        $('#signal-error').show();
+        $('#error-message').text(message);
+    }
+    
+    // Simple markdown formatter (supports bold, italic, lists, headers)
+    function formatMarkdown(text) {
+        if (!text) return '';
+        
+        // Replace headers
+        text = text.replace(/^### (.*?)$/gm, '<h5>$1</h5>');
+        text = text.replace(/^## (.*?)$/gm, '<h4>$1</h4>');
+        text = text.replace(/^# (.*?)$/gm, '<h3>$1</h3>');
+        
+        // Replace bold and italic
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Replace lists
+        text = text.replace(/^\- (.*?)$/gm, '<li>$1</li>');
+        text = text.replace(/(<li>.*?<\/li>)\n(<li>)/g, '$1$2');
+        text = text.replace(/(<li>.*?<\/li>\n)+/g, '<ul>$&</ul>');
+        
+        // Replace paragraphs
+        text = text.replace(/^([^<].*?)$/gm, '<p>$1</p>');
+        text = text.replace(/<p><\/p>/g, '');
+        
+        return text;
+    }
+});
+</script>
+{% endblock %}

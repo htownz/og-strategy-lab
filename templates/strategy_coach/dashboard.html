@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | Dashboard{% endblock %}
+
+{% block head %}
+<style>
+    .coach-avatar {
+        width: 90px;
+        height: 90px;
+        background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+    }
+    
+    .coach-avatar i {
+        font-size: 36px;
+        color: white;
+    }
+    
+    .learning-path-card {
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .learning-path-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .progress-sm {
+        height: 6px;
+    }
+    
+    .insight-tag {
+        background-color: rgba(79, 70, 229, 0.1);
+        color: var(--accent-color);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        display: inline-block;
+    }
+    
+    .coach-card {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(129, 140, 248, 0.1) 100%);
+        border: 1px solid rgba(79, 70, 229, 0.1);
+    }
+    
+    .chat-window {
+        height: 300px;
+        overflow-y: auto;
+    }
+    
+    .coach-message {
+        background-color: rgba(79, 70, 229, 0.1);
+        border-radius: 15px 15px 15px 0;
+        padding: 10px 15px;
+        max-width: 80%;
+        margin-bottom: 15px;
+    }
+    
+    .user-message {
+        background-color: rgba(31, 41, 55, 0.6);
+        border-radius: 15px 15px 0 15px;
+        padding: 10px 15px;
+        max-width: 80%;
+        margin-left: auto;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fa fa-graduation-cap me-2 text-accent"></i>
+            Trading Strategy Coach
+        </h2>
+        <div>
+            <a href="{{ url_for('strategy_coach.new_coaching_session') }}" class="btn btn-primary">
+                <i class="fa fa-plus-circle me-2"></i> New Coaching Session
+            </a>
+        </div>
+    </div>
+    
+    <!-- Coach Overview Card -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card coach-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="coach-avatar">
+                                <i class="fa fa-robot"></i>
+                            </div>
+                            <h5>{{ coach.name }}</h5>
+                            <span class="badge bg-primary">{{ coach.personality|title }}</span>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Trading Expertise</span>
+                                    <span class="badge bg-success">Advanced</span>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 90%" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Strategic Analysis</span>
+                                    <span class="badge bg-success">Expert</span>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 95%" aria-valuenow="95" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Risk Management</span>
+                                    <span class="badge bg-primary">Advanced</span>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 85%" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <h6 class="text-accent mb-3">Focus Areas</h6>
+                            <div class="mb-3">
+                                {% if coach.user_preferences and coach.user_preferences.focus_areas %}
+                                    {% for area in coach.user_preferences.focus_areas %}
+                                        <span class="insight-tag">{{ area|replace('_', ' ')|title }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="insight-tag">OG Strategy</span>
+                                    <span class="insight-tag">Pattern Recognition</span>
+                                    <span class="insight-tag">Risk Management</span>
+                                    <span class="insight-tag">Trade Psychology</span>
+                                {% endif %}
+                            </div>
+                            <a href="{{ url_for('strategy_coach.coach_profile') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fa fa-sliders me-1"></i> Customize Coach
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions and Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Start Learning</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <a href="{{ url_for('strategy_coach.new_learning_path') }}" class="text-decoration-none">
+                                <div class="text-center p-4 border rounded bg-dark h-100 d-flex flex-column align-items-center justify-content-center shadow-hover">
+                                    <div class="mb-3">
+                                        <i class="fa fa-map text-accent fa-3x mb-3"></i>
+                                        <h5>Create Learning Path</h5>
+                                    </div>
+                                    <p class="text-secondary small mb-0">Build a personalized learning journey based on your goals</p>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="{{ url_for('strategy_coach.new_coaching_session') }}" class="text-decoration-none">
+                                <div class="text-center p-4 border rounded bg-dark h-100 d-flex flex-column align-items-center justify-content-center shadow-hover">
+                                    <div class="mb-3">
+                                        <i class="fa fa-comments text-accent fa-3x mb-3"></i>
+                                        <h5>Start Coaching Session</h5>
+                                    </div>
+                                    <p class="text-secondary small mb-0">1-on-1 coaching for strategy improvement</p>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="{{ url_for('strategy_coach.performance_insights') }}" class="text-decoration-none">
+                                <div class="text-center p-4 border rounded bg-dark h-100 d-flex flex-column align-items-center justify-content-center shadow-hover">
+                                    <div class="mb-3">
+                                        <i class="fa fa-chart-pie text-accent fa-3x mb-3"></i>
+                                        <h5>View Performance Insights</h5>
+                                    </div>
+                                    <p class="text-secondary small mb-0">AI analysis of your trading patterns and results</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Trader Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <div class="d-flex flex-column">
+                                <span class="text-secondary small">Win Rate</span>
+                                <span class="h3 text-success mb-0">{{ performance_insights.win_rate * 100 }}%</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="d-flex flex-column">
+                                <span class="text-secondary small">Risk-Reward Ratio</span>
+                                <span class="h3 text-accent mb-0">{{ performance_insights.risk_reward_ratio }}:1</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex flex-column">
+                                <span class="text-secondary small">Avg Profit</span>
+                                <span class="h3 text-success mb-0">{{ performance_insights.average_profit }}%</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex flex-column">
+                                <span class="text-secondary small">Avg Loss</span>
+                                <span class="h3 text-danger mb-0">{{ performance_insights.average_loss }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6 class="mb-2">Suggested Focus</h6>
+                    <span class="insight-tag">{{ performance_insights.suggested_focus|replace('_', ' ')|title }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Learning Paths Row -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Your Learning Paths</h4>
+                <a href="{{ url_for('strategy_coach.learning_paths') }}" class="btn btn-sm btn-outline-primary">View All Paths</a>
+            </div>
+            
+            {% if learning_paths %}
+            <div class="row">
+                {% for path in learning_paths %}
+                <div class="col-md-4 mb-3">
+                    <div class="card learning-path-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h5 class="card-title mb-0">{{ path.name }}</h5>
+                                <span class="badge bg-{{ 'success' if path.progress >= 75 else 'primary' if path.progress >= 25 else 'secondary' }}">
+                                    {{ path.skill_level|title }}
+                                </span>
+                            </div>
+                            <p class="card-text text-secondary small mb-3">{{ path.description }}</p>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small">Progress</span>
+                                    <span class="small">{{ path.progress|int }}%</span>
+                                </div>
+                                <div class="progress progress-sm">
+                                    <div class="progress-bar bg-{{ 'success' if path.progress >= 75 else 'primary' if path.progress >= 25 else 'secondary' }}" 
+                                         role="progressbar" 
+                                         style="width: {{ path.progress }}%" 
+                                         aria-valuenow="{{ path.progress }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                {% for area in path.focus_areas %}
+                                <span class="insight-tag">{{ area|replace('_', ' ')|title }}</span>
+                                {% endfor %}
+                            </div>
+                            
+                            <div>
+                                <a href="{{ url_for('strategy_coach.view_learning_path', path_id=path.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fa fa-arrow-right me-1"></i> Continue Learning
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center p-5">
+                    <i class="fa fa-map-marked fa-4x text-secondary mb-3"></i>
+                    <h5 class="mb-3">No Learning Paths Yet</h5>
+                    <p class="text-secondary mb-4">Create your first personalized learning path to improve your trading skills</p>
+                    <a href="{{ url_for('strategy_coach.new_learning_path') }}" class="btn btn-primary">
+                        <i class="fa fa-plus-circle me-2"></i> Create Learning Path
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Insights and Recent Sessions -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Performance Insights</h5>
+                    <a href="{{ url_for('strategy_coach.performance_insights') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa fa-external-link-alt me-1"></i> View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if performance_insights %}
+                    <div class="mb-4">
+                        <h6 class="text-accent mb-2">Strengths</h6>
+                        <ul class="mb-0">
+                            {% for strength in performance_insights.strengths %}
+                            <li>{{ strength }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div>
+                        <h6 class="text-accent mb-2">Improvement Areas</h6>
+                        <ul class="mb-0">
+                            {% for area in performance_insights.improvement_areas %}
+                            <li>{{ area }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-4">
+                        <i class="fa fa-chart-bar fa-3x text-secondary mb-3"></i>
+                        <h5 class="mb-3">No Performance Data Yet</h5>
+                        <p class="text-secondary">Execute more trades to generate performance insights</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Coaching Sessions</h5>
+                    <a href="{{ url_for('strategy_coach.coaching_sessions') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa fa-external-link-alt me-1"></i> View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if coach.coaching_sessions %}
+                    <div class="chat-window">
+                        {% for session in coach.coaching_sessions[:3] %}
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">{{ session.title }}</h6>
+                                <span class="badge bg-{{ 'success' if session.status == 'completed' else 'primary' if session.status == 'active' else 'secondary' }}">
+                                    {{ session.status|title }}
+                                </span>
+                            </div>
+                            <div class="coach-message">
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="fa fa-robot text-accent me-2"></i>
+                                    <small class="text-secondary">{{ coach.name }}</small>
+                                </div>
+                                {% if session.conversation and session.conversation|length > 0 %}
+                                {{ session.conversation[0].content|truncate(150) }}
+                                {% else %}
+                                No messages in this session yet.
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <a href="{{ url_for('strategy_coach.view_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fa fa-arrow-right me-1"></i> Continue Session
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center p-4">
+                        <i class="fa fa-comments fa-3x text-secondary mb-3"></i>
+                        <h5 class="mb-3">No Coaching Sessions Yet</h5>
+                        <p class="text-secondary mb-3">Start a coaching session to get personalized guidance</p>
+                        <a href="{{ url_for('strategy_coach.new_coaching_session') }}" class="btn btn-primary">
+                            <i class="fa fa-plus-circle me-2"></i> Start Coaching Session
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Scroll chat window to bottom
+        const chatWindows = document.querySelectorAll('.chat-window');
+        chatWindows.forEach(window => {
+            window.scrollTop = window.scrollHeight;
+        });
+    });
+</script>
+{% endblock %}

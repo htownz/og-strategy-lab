@@ -1,0 +1,468 @@
+{% extends 'base.html' %}
+
+{% block title %}Signal Health Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h2>Signal Health Dashboard</h2>
+            <p class="text-muted">Real-time monitoring of signal throttling and performance metrics</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Throttling Controls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="throttleActiveSwitch" {% if throttle_active %}checked{% endif %}>
+                        <label class="form-check-label" for="throttleActiveSwitch">Signal Throttling Active</label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="throttleWindow" class="form-label">Throttle Window (seconds)</label>
+                        <input type="range" class="form-range" min="5" max="60" step="5" id="throttleWindow" value="{{ throttle_window }}">
+                        <div class="d-flex justify-content-between">
+                            <span>5s</span>
+                            <span id="throttleWindowValue">{{ throttle_window }}s</span>
+                            <span>60s</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confidenceCutoff" class="form-label">Confidence Cutoff</label>
+                        <input type="range" class="form-range" min="0" max="1" step="0.05" id="confidenceCutoff" value="{{ confidence_cutoff }}">
+                        <div class="d-flex justify-content-between">
+                            <span>0.0</span>
+                            <span id="confidenceCutoffValue">{{ confidence_cutoff }}</span>
+                            <span>1.0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="throttleOverrideSwitch" {% if throttle_override %}checked{% endif %}>
+                        <label class="form-check-label" for="throttleOverrideSwitch">Admin Override (Disable All Throttling)</label>
+                    </div>
+                    
+                    <button id="saveThrottleSettings" class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Turbo Boost Mode</h5>
+                    <span id="boostBadge" class="badge {% if boost_mode_active %}bg-success{% else %}bg-secondary{% endif %}">
+                        {% if boost_mode_active %}ACTIVE{% else %}INACTIVE{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p>Temporarily disable all throttling for maximum signal throughput.</p>
+                    
+                    {% if boost_mode_active %}
+                    <div class="alert alert-success">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Boost Mode Active!</span>
+                            <span id="boostCountdown" data-remaining="{{ boost_time_remaining }}">{{ boost_time_remaining }}s remaining</span>
+                        </div>
+                        <div class="progress mt-2">
+                            <div id="boostProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row g-2">
+                        <div class="col">
+                            <button id="activate30sBoost" class="btn btn-outline-success w-100">30s Boost</button>
+                        </div>
+                        <div class="col">
+                            <button id="activate2mBoost" class="btn btn-outline-success w-100">2m Boost</button>
+                        </div>
+                        <div class="col">
+                            <button id="activate5mBoost" class="btn btn-outline-success w-100">5m Boost</button>
+                        </div>
+                    </div>
+                    {% if boost_mode_active %}
+                    <div class="mt-2">
+                        <button id="cancelBoost" class="btn btn-outline-danger w-100">Cancel Boost</button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Signal Processing Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-4">
+                            <div class="text-center">
+                                <h2 id="totalSignals">{{ metrics.total_signals }}</h2>
+                                <p class="text-muted mb-0">Total Signals</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <h2 id="allowedCount">{{ metrics.allowed_count }}</h2>
+                                <p class="text-muted mb-0">Allowed</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <h2 id="throttledCount">{{ metrics.throttled_count }}</h2>
+                                <p class="text-muted mb-0">Throttled</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Throttle Rate</h5>
+                        <div class="progress" style="height: 30px">
+                            <div id="throttleRateBar" class="progress-bar bg-primary" role="progressbar" 
+                                 style="width: {{ metrics.throttle_rate * 100 }}%">
+                                <span id="throttleRateValue">{{ (metrics.throttle_rate * 100) | round(1) }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>Average Latency: <span id="avgLatency">{{ metrics.avg_latency_ms }}</span> ms</h5>
+                        <canvas id="latencyChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Active Throttles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Throttled Until</th>
+                                    <th>Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activeThrottlesTable">
+                                {% for throttle in metrics.active_throttles %}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{ throttle.symbol }}</span></td>
+                                    <td>{{ throttle.until }}</td>
+                                    <td>{{ throttle.remaining_seconds }}s</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No active throttles</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-light">
+                    <h5 class="mb-0">Symbol Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div id="symbolsContainer" class="d-flex flex-wrap gap-2">
+                        {% for symbol, data in metrics.symbols.items() %}
+                        <div class="symbol-badge p-2 rounded 
+                            {% if data.is_throttled %}bg-secondary{% else %}bg-primary{% endif %}">
+                            <div class="d-flex flex-column">
+                                <span class="symbol-code">{{ symbol }}</span>
+                                <span class="symbol-count">{{ data.count }}</span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center w-100">
+                            <p>No symbol activity data available</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the latency chart
+        const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+        const latencyChart = new Chart(latencyCtx, {
+            type: 'line',
+            data: {
+                labels: Array({{ metrics.latency_samples|length }}).fill('').map((_, i) => i),
+                datasets: [{
+                    label: 'Signal Processing Latency (ms)',
+                    data: {{ metrics.latency_samples|tojson }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Milliseconds'
+                        }
+                    },
+                    x: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Update slider values display
+        document.getElementById('throttleWindow').addEventListener('input', function() {
+            document.getElementById('throttleWindowValue').textContent = this.value + 's';
+        });
+        
+        document.getElementById('confidenceCutoff').addEventListener('input', function() {
+            document.getElementById('confidenceCutoffValue').textContent = this.value;
+        });
+
+        // Socket.IO event handling for real-time updates
+        const socket = io();
+        
+        socket.on('connect', function() {
+            console.log('Connected to Socket.IO server');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from Socket.IO server');
+        });
+        
+        socket.on('throttling_metrics', function(data) {
+            // Update metrics
+            document.getElementById('totalSignals').textContent = data.total_signals;
+            document.getElementById('allowedCount').textContent = data.allowed_count;
+            document.getElementById('throttledCount').textContent = data.throttled_count;
+            
+            // Update throttle rate bar
+            const throttleRateBar = document.getElementById('throttleRateBar');
+            const throttleRatePercent = (data.throttle_rate * 100).toFixed(1);
+            throttleRateBar.style.width = `${throttleRatePercent}%`;
+            document.getElementById('throttleRateValue').textContent = `${throttleRatePercent}%`;
+            
+            // Update latency
+            document.getElementById('avgLatency').textContent = data.avg_latency_ms;
+            
+            // Update latency chart
+            latencyChart.data.datasets[0].data = data.latency_samples;
+            latencyChart.update();
+            
+            // Update active throttles table
+            const activeThrottlesTable = document.getElementById('activeThrottlesTable');
+            activeThrottlesTable.innerHTML = '';
+            
+            if (data.active_throttles.length > 0) {
+                data.active_throttles.forEach(function(throttle) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><span class="badge bg-primary">${throttle.symbol}</span></td>
+                        <td>${throttle.until}</td>
+                        <td>${throttle.remaining_seconds}s</td>
+                    `;
+                    activeThrottlesTable.appendChild(row);
+                });
+            } else {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="3" class="text-center">No active throttles</td>';
+                activeThrottlesTable.appendChild(row);
+            }
+            
+            // Update symbol activity badges
+            const symbolsContainer = document.getElementById('symbolsContainer');
+            symbolsContainer.innerHTML = '';
+            
+            if (Object.keys(data.symbols).length > 0) {
+                for (const [symbol, symbolData] of Object.entries(data.symbols)) {
+                    const badge = document.createElement('div');
+                    badge.className = `symbol-badge p-2 rounded ${symbolData.is_throttled ? 'bg-secondary' : 'bg-primary'}`;
+                    badge.innerHTML = `
+                        <div class="d-flex flex-column">
+                            <span class="symbol-code">${symbol}</span>
+                            <span class="symbol-count">${symbolData.count}</span>
+                        </div>
+                    `;
+                    symbolsContainer.appendChild(badge);
+                }
+            } else {
+                symbolsContainer.innerHTML = '<div class="text-center w-100"><p>No symbol activity data available</p></div>';
+            }
+        });
+        
+        // Boost mode countdown
+        const boostCountdown = document.getElementById('boostCountdown');
+        if (boostCountdown) {
+            const boostProgressBar = document.getElementById('boostProgressBar');
+            const totalTime = parseInt(boostCountdown.dataset.remaining);
+            let timeRemaining = totalTime;
+            
+            const updateBoostCountdown = () => {
+                if (timeRemaining <= 0) {
+                    // Refresh the page when the boost ends
+                    window.location.reload();
+                    return;
+                }
+                
+                timeRemaining--;
+                boostCountdown.textContent = `${timeRemaining}s remaining`;
+                
+                const percentRemaining = (timeRemaining / totalTime) * 100;
+                boostProgressBar.style.width = `${percentRemaining}%`;
+                
+                setTimeout(updateBoostCountdown, 1000);
+            };
+            
+            if (timeRemaining > 0) {
+                setTimeout(updateBoostCountdown, 1000);
+            }
+        }
+        
+        // Save throttle settings button
+        document.getElementById('saveThrottleSettings').addEventListener('click', function() {
+            const throttleActive = document.getElementById('throttleActiveSwitch').checked;
+            const throttleWindow = document.getElementById('throttleWindow').value;
+            const confidenceCutoff = document.getElementById('confidenceCutoff').value;
+            const throttleOverride = document.getElementById('throttleOverrideSwitch').checked;
+            
+            fetch('/api/update-throttle-settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    throttle_active: throttleActive,
+                    throttle_window: throttleWindow,
+                    confidence_cutoff: confidenceCutoff,
+                    throttle_override: throttleOverride
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Throttle settings updated successfully');
+                } else {
+                    alert('Error updating throttle settings: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating throttle settings');
+            });
+        });
+        
+        // Boost mode buttons
+        const activateBoost = (duration) => {
+            fetch('/api/activate-boost', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    duration: duration
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error activating boost mode: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error activating boost mode');
+            });
+        };
+        
+        document.getElementById('activate30sBoost')?.addEventListener('click', () => activateBoost(30));
+        document.getElementById('activate2mBoost')?.addEventListener('click', () => activateBoost(120));
+        document.getElementById('activate5mBoost')?.addEventListener('click', () => activateBoost(300));
+        
+        document.getElementById('cancelBoost')?.addEventListener('click', function() {
+            fetch('/api/cancel-boost', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error canceling boost mode: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error canceling boost mode');
+            });
+        });
+
+        // Poll for updates every 5 seconds (fallback if WebSockets not available)
+        setInterval(() => {
+            fetch('/api/throttling-metrics')
+                .then(response => response.json())
+                .then(data => {
+                    // We'll use the same handler as for WebSocket events
+                    if (!socket.connected) {
+                        socket.emit('throttling_metrics', data);
+                    }
+                })
+                .catch(error => console.error('Error fetching metrics:', error));
+        }, 5000);
+    });
+</script>
+
+<style>
+    .symbol-badge {
+        min-width: 70px;
+        text-align: center;
+        color: white;
+        transition: transform 0.2s;
+    }
+    
+    .symbol-badge:hover {
+        transform: scale(1.05);
+    }
+    
+    .symbol-code {
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .symbol-count {
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}

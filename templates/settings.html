@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">Settings</h1>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">System Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        <!-- Trading Settings -->
+                        <h5 class="section-header">Trading Settings</h5>
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="auto_trade_enabled" name="auto_trade_enabled" {% if auto_trade_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="auto_trade_enabled">Enable Automatic Trading</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">When enabled, the system will automatically execute trades based on detected signals.</small>
+                        </div>
+                        
+                        <!-- Notification Settings -->
+                        <h5 class="section-header">Notification Settings</h5>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="telegram_enabled" name="telegram_enabled" {% if telegram_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="telegram_enabled">Enable Telegram Notifications</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Receive real-time alerts for signals and trades via Telegram.</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="evening_brief_enabled" name="evening_brief_enabled" {% if evening_brief_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="evening_brief_enabled">Enable Evening Brief</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Receive a daily summary of signals and trades at the end of the trading day.</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <button type="button" id="test-message-btn" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-paper-plane me-1"></i> Send Test Message
+                            </button>
+                            <small class="text-muted d-block mt-1">Send a test message to verify Telegram integration.</small>
+                        </div>
+                        
+                        <!-- Telegram Settings -->
+                        <h5 class="section-header">Telegram Configuration</h5>
+                        <div class="alert alert-info">
+                            <p><strong>Note:</strong> Telegram credentials are configured via environment variables.</p>
+                            <p>Set <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_CHAT_ID</code> in your environment variables to enable Telegram notifications.</p>
+                        </div>
+                        
+                        <!-- Alpaca Settings -->
+                        <h5 class="section-header">Alpaca API Configuration</h5>
+                        <div class="alert alert-info">
+                            <p><strong>Note:</strong> Alpaca API credentials are configured via environment variables.</p>
+                            <p>Set <code>ALPACA_API_KEY</code>, <code>ALPACA_SECRET_KEY</code>, and <code>ALPACA_BASE_URL</code> in your environment variables to enable trading.</p>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

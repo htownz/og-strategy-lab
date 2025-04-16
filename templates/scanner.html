@@ -1,0 +1,1583 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Scanner{% endblock %}
+
+{% block head %}
+<link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet" />
+<style>
+    .scanner-card {
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .scanner-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .scanner-status {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+    }
+    
+    .scanner-status.running {
+        background-color: var(--bs-success);
+        color: white;
+    }
+    
+    .scanner-status.stopped {
+        background-color: var(--bs-danger);
+        color: white;
+    }
+    
+    .market-status {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+    }
+    
+    .market-status.open {
+        background-color: var(--bs-success);
+        color: white;
+    }
+    
+    .market-status.closed {
+        background-color: var(--bs-secondary);
+        color: white;
+    }
+    
+    .watchlist-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .watchlist-item:last-child {
+        border-bottom: none;
+    }
+    
+    .match-alert {
+        animation: pulse 2s infinite;
+        background-color: var(--bs-warning);
+        color: var(--bs-dark);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .match-details {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .match-score {
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+    
+    .score-high {
+        color: var(--bs-success);
+    }
+    
+    .score-medium {
+        color: var(--bs-warning);
+    }
+    
+    .og-tag {
+        background-color: var(--bs-success);
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.8em;
+    }
+    
+    .logs-section {
+        margin-top: 20px;
+    }
+    
+    .log-entry {
+        padding: 8px 10px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+    
+    .log-INFO {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-left: 3px solid var(--bs-primary);
+    }
+    
+    .log-WARNING {
+        background-color: rgba(255, 193, 7, 0.1);
+        border-left: 3px solid var(--bs-warning);
+    }
+    
+    .log-ERROR {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-left: 3px solid var(--bs-danger);
+    }
+    
+    #matchesList {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2 class="mb-4">OG Strategy Scanner</h2>
+            
+            <div class="card scanner-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h4 class="card-title">Scanner Status</h4>
+                            {% if scanner_status %}
+                            <div class="scanner-status running">RUNNING</div>
+                            {% else %}
+                            <div class="scanner-status stopped">STOPPED</div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h4 class="card-title">Market Status</h4>
+                            {% if market_status %}
+                            <div class="market-status open">OPEN</div>
+                            {% else %}
+                            <div class="market-status closed">CLOSED</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="scanner-controls">
+                        {% if scanner_status %}
+                        <button id="toggleScanner" class="btn btn-danger" data-action="stop">
+                            <i class="fa fa-stop"></i> Stop Scanner
+                        </button>
+                        {% else %}
+                        <button id="toggleScanner" class="btn btn-success" data-action="start">
+                            <i class="fa fa-play"></i> Start Scanner
+                        </button>
+                        {% endif %}
+                        
+                        <button id="editWatchlist" class="btn btn-primary">
+                            <i class="fa fa-edit"></i> Edit Watchlist
+                        </button>
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-info dropdown-toggle" type="button" id="timeframeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fa fa-clock"></i> Timeframe Options
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="timeframeDropdown">
+                                <li>
+                                    <div class="form-check dropdown-item">
+                                        <input class="form-check-input" type="checkbox" value="" id="multiTimeframeToggle">
+                                        <label class="form-check-label" for="multiTimeframeToggle">
+                                            Multi-Timeframe Mode
+                                        </label>
+                                    </div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <div class="dropdown-item">
+                                        <select class="form-select" id="timeframeSetSelect">
+                                            <option value="0">All TFs (5m → 3h)</option>
+                                            <option value="1">Short-Term (5m, 15m, 1h)</option>
+                                            <option value="2">Medium-Term (15m, 45m, 3h)</option>
+                                        </select>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Overnight Scan Section -->
+                    <div class="card mb-3 bg-dark">
+                        <div class="card-body">
+                            <h5 class="card-title">Overnight OG Strategy Scan</h5>
+                            <p class="card-text">Scan our curated list of 24 tickers for high-probability overnight options trades.</p>
+                            <button id="overnightScanBtn" class="btn btn-warning">
+                                <i class="fa fa-moon"></i> Run Overnight Scan
+                            </button>
+                            <div id="overnightResults" class="mt-3" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Scan Results:</h6>
+                                    <div class="btn-group">
+                                        <button id="saveScanBtn" class="btn btn-sm btn-success">
+                                            <i class="fa fa-save"></i> Save Results
+                                        </button>
+                                        <button id="viewSavedScansBtn" class="btn btn-sm btn-info">
+                                            <i class="fa fa-history"></i> View Saved Scans
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Ticker</th>
+                                                <th>Direction</th>
+                                                <th>Confidence</th>
+                                                <th>Timeframes</th>
+                                                <th>Setup</th>
+                                                <th>Suggested Contract</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="overnightResultsBody">
+                                            <!-- Results will be added here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Saved scans list (hidden by default) -->
+                            <div id="savedScansContainer" class="mt-3" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Saved Scans:</h6>
+                                    <button id="hideSavedScansBtn" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fa fa-times"></i> Close
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Date</th>
+                                                <th>Timeframes</th>
+                                                <th>Results</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="savedScansBody">
+                                            <!-- Saved scans will be listed here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Watchlist Symbols</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="watchlistItems">
+                                        {% for symbol in watchlist %}
+                                        <div class="watchlist-item">
+                                            <span class="symbol">{{ symbol }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Scanner Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="scannerSettings">
+                                        <div class="mb-3">
+                                            <label for="scanInterval" class="form-label">Scan Interval (seconds)</label>
+                                            <input type="number" class="form-control" id="scanInterval" value="60" min="30" max="300">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="minConditions" class="form-label">Min Conditions Required</label>
+                                            <input type="number" class="form-control" id="minConditions" value="3" min="1" max="4">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Apply Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card scanner-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Live Contract Feed</h4>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked>
+                            <label class="form-check-label" for="autoRefreshToggle">Real-time Updates</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filter controls -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="tickerFilter">Ticker</label>
+                                <input type="text" class="form-control" id="tickerFilter" placeholder="e.g. SPY">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="expirationFilter">Expiration</label>
+                                <select class="form-select" id="expirationFilter">
+                                    <option value="">All Expirations</option>
+                                    <!-- Will be populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Show Only</label>
+                            <div class="d-flex gap-3 mt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="whaleOnlyFilter">
+                                    <label class="form-check-label" for="whaleOnlyFilter">Whale Activity</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="ogOnlyFilter">
+                                    <label class="form-check-label" for="ogOnlyFilter">OG Strategy Matches</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="callsOnlyFilter">
+                                    <label class="form-check-label" for="callsOnlyFilter">Calls Only</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="putsOnlyFilter">
+                                    <label class="form-check-label" for="putsOnlyFilter">Puts Only</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Matches list -->
+                    <div id="matchesList" class="overflow-auto" style="max-height: 500px;">
+                        <!-- Matches will be added here dynamically via JavaScript -->
+                        <div class="text-center p-4" id="noMatchesMsg">
+                            <p>No strategy matches detected yet. The scanner will notify you when a match is found.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <div>
+                        <span id="matchCount">0</span> matches found
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" id="clearMatches">Clear All</button>
+                        <button class="btn btn-sm btn-outline-primary" id="refreshMatches">
+                            <i class="fa fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card scanner-card">
+                <div class="card-header">
+                    <h4 class="mb-0">System Logs</h4>
+                </div>
+                <div class="card-body logs-section">
+                    <div id="logEntries">
+                        {% for log in logs %}
+                        <div class="log-entry log-{{ log.level }}">
+                            <span class="time">[{{ log.timestamp|format_timestamp }}]</span>
+                            <span class="level">[{{ log.level }}]</span>
+                            <span class="message">{{ log.message }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Watchlist Modal -->
+<div class="modal fade" id="watchlistModal" tabindex="-1" aria-labelledby="watchlistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="watchlistModalLabel">Edit Watchlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="watchlistForm">
+                    <div class="mb-3">
+                        <label for="watchlistSymbols" class="form-label">Symbols (one per line)</label>
+                        <textarea class="form-control" id="watchlistSymbols" rows="10">{{ watchlist|join('\n') }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveWatchlist">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store all matches for filtering
+        const allMatches = [];
+        const expirations = new Set();
+        
+        // Socket.IO connection for real-time updates
+        const socket = io();
+        
+        // Flag for auto-refresh
+        let autoRefreshEnabled = true;
+        
+        // Initialize UI components
+        initializeFilterControls();
+        
+        // Listen for trade alerts from the scanner
+        socket.on('trade_alert', function(data) {
+            // Add expiration to the set of known expirations
+            if (data.expiration) {
+                expirations.add(data.expiration);
+                updateExpirationDropdown();
+            }
+            
+            // Add to our array of matches
+            const matchData = {
+                ...data,
+                is_whale: data.volume > data.open_interest && data.volume > 500,
+                is_og_match: true,
+                ticker: data.ticker,
+                strike: data.strike,
+                option_type: data.option_type,
+                expiration: data.expiration || 'Unknown'
+            };
+            
+            allMatches.push(matchData);
+            
+            // If auto-refresh is enabled, add to display
+            if (autoRefreshEnabled) {
+                if (matchPassesFilters(matchData)) {
+                    addStrategyMatchToDisplay(matchData);
+                }
+            }
+            
+            // Update the match counter
+            updateMatchCounter();
+        });
+        
+        // Toggle auto-refresh when the switch is clicked
+        document.getElementById('autoRefreshToggle').addEventListener('change', function(e) {
+            autoRefreshEnabled = e.target.checked;
+        });
+        
+        // Clear matches button
+        document.getElementById('clearMatches').addEventListener('click', function() {
+            allMatches.length = 0;
+            clearMatchesList();
+            updateMatchCounter();
+        });
+        
+        // Refresh matches manually
+        document.getElementById('refreshMatches').addEventListener('click', function() {
+            applyFilters();
+        });
+        
+        // Toggle scanner button
+        const toggleButton = document.getElementById('toggleScanner');
+        toggleButton.addEventListener('click', function() {
+            const action = toggleButton.getAttribute('data-action');
+            toggleScanner(action);
+        });
+        
+        // Edit watchlist button
+        document.getElementById('editWatchlist').addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('watchlistModal'));
+            modal.show();
+        });
+        
+        // Save watchlist button
+        document.getElementById('saveWatchlist').addEventListener('click', function() {
+            const textarea = document.getElementById('watchlistSymbols');
+            const symbols = textarea.value.trim().split('\n')
+                            .map(s => s.trim().toUpperCase())
+                            .filter(s => s);
+            
+            // Save watchlist
+            fetch('/api/scanner/watchlist', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ watchlist: symbols })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update watchlist display
+                    updateWatchlistDisplay(data.watchlist);
+                    
+                    // Close modal
+                    bootstrap.Modal.getInstance(document.getElementById('watchlistModal')).hide();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to update watchlist'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
+        });
+        
+        // Scanner settings form
+        document.getElementById('scannerSettings').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const scanInterval = document.getElementById('scanInterval').value;
+            const minConditions = document.getElementById('minConditions').value;
+            
+            // Save settings
+            fetch('/api/scanner/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    scan_interval: parseInt(scanInterval),
+                    min_conditions_required: parseInt(minConditions)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Settings updated successfully');
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to update settings'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
+        });
+        
+        // Function to initialize filter controls
+        function initializeFilterControls() {
+            // Handle ticker filter input
+            const tickerFilter = document.getElementById('tickerFilter');
+            tickerFilter.addEventListener('input', function() {
+                // Apply filters after a short delay to avoid too many updates while typing
+                debounce(applyFilters, 300)();
+            });
+            
+            // Handle expiration filter changes
+            const expirationFilter = document.getElementById('expirationFilter');
+            expirationFilter.addEventListener('change', function() {
+                applyFilters();
+            });
+            
+            // Handle checkbox filters
+            const whaleOnlyFilter = document.getElementById('whaleOnlyFilter');
+            const ogOnlyFilter = document.getElementById('ogOnlyFilter');
+            const callsOnlyFilter = document.getElementById('callsOnlyFilter');
+            const putsOnlyFilter = document.getElementById('putsOnlyFilter');
+            
+            [whaleOnlyFilter, ogOnlyFilter, callsOnlyFilter, putsOnlyFilter].forEach(filter => {
+                filter.addEventListener('change', function() {
+                    applyFilters();
+                });
+            });
+            
+            // Make calls and puts filters mutually exclusive
+            callsOnlyFilter.addEventListener('change', function() {
+                if (this.checked && putsOnlyFilter.checked) {
+                    putsOnlyFilter.checked = false;
+                }
+            });
+            
+            putsOnlyFilter.addEventListener('change', function() {
+                if (this.checked && callsOnlyFilter.checked) {
+                    callsOnlyFilter.checked = false;
+                }
+            });
+        }
+        
+        // Function to update expiration dropdown
+        function updateExpirationDropdown() {
+            const expirationFilter = document.getElementById('expirationFilter');
+            // Save currently selected value
+            const selectedValue = expirationFilter.value;
+            
+            // Clear all options except the first one
+            while (expirationFilter.options.length > 1) {
+                expirationFilter.remove(1);
+            }
+            
+            // Add all known expirations
+            const sortedExpirations = Array.from(expirations).sort();
+            sortedExpirations.forEach(exp => {
+                const option = document.createElement('option');
+                option.value = exp;
+                option.textContent = exp;
+                expirationFilter.appendChild(option);
+            });
+            
+            // Restore selected value if it exists
+            if (sortedExpirations.includes(selectedValue)) {
+                expirationFilter.value = selectedValue;
+            }
+        }
+        
+        // Function to check if a match passes current filters
+        function matchPassesFilters(match) {
+            // Ticker filter
+            const tickerFilter = document.getElementById('tickerFilter').value.trim().toUpperCase();
+            if (tickerFilter && !match.ticker.includes(tickerFilter)) {
+                return false;
+            }
+            
+            // Expiration filter
+            const expirationFilter = document.getElementById('expirationFilter').value;
+            if (expirationFilter && match.expiration !== expirationFilter) {
+                return false;
+            }
+            
+            // Whale only filter
+            const whaleOnlyFilter = document.getElementById('whaleOnlyFilter').checked;
+            if (whaleOnlyFilter && !match.is_whale) {
+                return false;
+            }
+            
+            // OG match only filter
+            const ogOnlyFilter = document.getElementById('ogOnlyFilter').checked;
+            if (ogOnlyFilter && !match.is_og_match) {
+                return false;
+            }
+            
+            // Calls only filter
+            const callsOnlyFilter = document.getElementById('callsOnlyFilter').checked;
+            if (callsOnlyFilter && match.option_type.toUpperCase() !== 'CALL') {
+                return false;
+            }
+            
+            // Puts only filter
+            const putsOnlyFilter = document.getElementById('putsOnlyFilter').checked;
+            if (putsOnlyFilter && match.option_type.toUpperCase() !== 'PUT') {
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Function to apply all filters
+        function applyFilters() {
+            clearMatchesList();
+            
+            // Filter all matches
+            const filteredMatches = allMatches.filter(matchPassesFilters);
+            
+            // Sort by timestamp, newest first
+            filteredMatches.sort((a, b) => {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
+            
+            // Add each match to display
+            filteredMatches.forEach(match => {
+                addStrategyMatchToDisplay(match);
+            });
+            
+            // Update counter
+            document.getElementById('matchCount').textContent = filteredMatches.length;
+        }
+        
+        // Clear the matches list
+        function clearMatchesList() {
+            const matchesList = document.getElementById('matchesList');
+            matchesList.innerHTML = '';
+            
+            // Add back the "no matches" message if needed
+            if (allMatches.length === 0) {
+                const noMatchesMsg = document.createElement('div');
+                noMatchesMsg.className = 'text-center p-4';
+                noMatchesMsg.id = 'noMatchesMsg';
+                noMatchesMsg.innerHTML = `<p>No strategy matches detected yet. The scanner will notify you when a match is found.</p>`;
+                matchesList.appendChild(noMatchesMsg);
+            }
+        }
+        
+        // Update match counter
+        function updateMatchCounter() {
+            const filteredCount = allMatches.filter(matchPassesFilters).length;
+            document.getElementById('matchCount').textContent = filteredCount;
+        }
+        
+        // Debounce function to limit how often a function is called
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    func.apply(context, args);
+                }, wait);
+            };
+        }
+        
+        // Function to toggle scanner
+        function toggleScanner(action) {
+            fetch('/api/scanner/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update status display
+                    const statusEl = document.querySelector('.scanner-status');
+                    if (data.running) {
+                        statusEl.classList.remove('stopped');
+                        statusEl.classList.add('running');
+                        statusEl.textContent = 'RUNNING';
+                        toggleButton.setAttribute('data-action', 'stop');
+                        toggleButton.classList.remove('btn-success');
+                        toggleButton.classList.add('btn-danger');
+                        toggleButton.innerHTML = '<i class="fa fa-stop"></i> Stop Scanner';
+                    } else {
+                        statusEl.classList.remove('running');
+                        statusEl.classList.add('stopped');
+                        statusEl.textContent = 'STOPPED';
+                        toggleButton.setAttribute('data-action', 'start');
+                        toggleButton.classList.remove('btn-danger');
+                        toggleButton.classList.add('btn-success');
+                        toggleButton.innerHTML = '<i class="fa fa-play"></i> Start Scanner';
+                    }
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to toggle scanner'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
+        }
+        
+        // Function to update watchlist display
+        function updateWatchlistDisplay(watchlist) {
+            const container = document.getElementById('watchlistItems');
+            container.innerHTML = '';
+            
+            watchlist.forEach(symbol => {
+                const item = document.createElement('div');
+                item.className = 'watchlist-item';
+                item.innerHTML = `<span class="symbol">${symbol}</span>`;
+                container.appendChild(item);
+            });
+        }
+        
+        // Function to add a new strategy match to the display
+        function addStrategyMatchToDisplay(data) {
+            // Remove "no matches" message if present
+            const noMatchesMsg = document.getElementById('noMatchesMsg');
+            if (noMatchesMsg) {
+                noMatchesMsg.remove();
+            }
+            
+            const matchesList = document.getElementById('matchesList');
+            
+            // Create match element
+            const matchEl = document.createElement('div');
+            matchEl.className = 'match-alert';
+            
+            // Add data attributes for filtering
+            matchEl.dataset.ticker = data.ticker;
+            matchEl.dataset.optionType = data.option_type;
+            matchEl.dataset.expiration = data.expiration || '';
+            matchEl.dataset.isWhale = data.is_whale ? 'true' : 'false';
+            matchEl.dataset.isOgMatch = data.is_og_match ? 'true' : 'false';
+            
+            // Format date
+            const date = new Date(data.timestamp);
+            const formattedDate = date.toLocaleString();
+            
+            // Determine score class
+            const scoreClass = data.confidence >= 4 ? 'score-high' : 'score-medium';
+            
+            // Build match HTML
+            matchEl.innerHTML = `
+                <div class="match-details">
+                    <div>
+                        <h5>${data.ticker} $${data.strike} ${data.option_type}</h5>
+                        <div>
+                            <span class="og-tag">OG MATCH</span>
+                            ${data.is_whale ? '<span class="badge bg-warning text-dark ms-2">WHALE</span>' : ''}
+                            <span class="fst-italic ms-2">${data.setup || 'OG Strategy'}</span>
+                        </div>
+                        <div class="mt-2">
+                            <small>Current Price: $${parseFloat(data.current_price).toFixed(2)}</small>
+                            <br>
+                            <small>Expiration: ${data.expiration || 'N/A'}</small>
+                            <br>
+                            <small>Time: ${formattedDate}</small>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="match-score ${scoreClass}">
+                            Score: ${data.confidence}/5
+                        </div>
+                        <div class="mt-2">
+                            <a href="/options?symbol=${data.ticker}" class="btn btn-sm btn-primary">View Chain</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add to list
+            matchesList.appendChild(matchEl);
+            
+            // Play notification sound if supported and this is a new match
+            if (data.isNew) {
+                try {
+                    const audio = new Audio('/static/audio/alert.mp3');
+                    audio.play();
+                } catch (e) {
+                    console.log('Audio notification not supported');
+                }
+            }
+        }
+        
+        // Function to add a new strategy match
+        function addStrategyMatch(data) {
+            // Add expiration to the set
+            if (data.expiration) {
+                expirations.add(data.expiration);
+                updateExpirationDropdown();
+            }
+            
+            // Mark this as a new match (for notification sound)
+            data.isNew = true;
+            
+            // Add to our array of matches
+            const matchData = {
+                ...data,
+                is_whale: data.volume > data.open_interest && data.volume > 500,
+                is_og_match: true,
+                ticker: data.ticker,
+                strike: data.strike,
+                option_type: data.option_type,
+                expiration: data.expiration || 'Unknown'
+            };
+            
+            allMatches.push(matchData);
+            
+            // If auto-refresh is enabled, add to display
+            if (autoRefreshEnabled) {
+                if (matchPassesFilters(matchData)) {
+                    addStrategyMatchToDisplay(matchData);
+                }
+            }
+            
+            // Update counter
+            updateMatchCounter();
+        }
+        
+        // Overnight Scan Button
+        const overnightScanBtn = document.getElementById('overnightScanBtn');
+        const overnightResults = document.getElementById('overnightResults');
+        const overnightResultsBody = document.getElementById('overnightResultsBody');
+        
+        overnightScanBtn.addEventListener('click', function() {
+            // Show loading state
+            overnightScanBtn.disabled = true;
+            overnightScanBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Scanning...';
+            
+            // Call the overnight scan API
+            fetch('/demo/scan_overnight_tickers')
+                .then(response => response.json())
+                .then(data => {
+                    // Re-enable button
+                    overnightScanBtn.disabled = false;
+                    overnightScanBtn.innerHTML = '<i class="fa fa-moon"></i> Run Overnight Scan';
+                    
+                    if (data.success) {
+                        // Store current scan results for saving
+                        currentScanResults = data;
+                        
+                        // Clear previous results
+                        overnightResultsBody.innerHTML = '';
+                        
+                        // Add log entry
+                        appendLogEntry('INFO', `Completed overnight scan of ${data.results.length} tickers with multi-timeframe analysis`);
+                        
+                        // Display results
+                        if (data.results.length > 0) {
+                            data.results.forEach(result => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td><strong>${result.ticker}</strong></td>
+                                    <td><span class="badge ${result.option_type === 'call' ? 'bg-success' : 'bg-danger'}">${result.option_type.toUpperCase()}</span></td>
+                                    <td><div class="progress">
+                                          <div class="progress-bar bg-info" role="progressbar" style="width: ${result.confidence}%" 
+                                               aria-valuenow="${result.confidence}" aria-valuemin="0" aria-valuemax="100">${Math.round(result.confidence)}%</div>
+                                        </div>
+                                    </td>
+                                    <td>${result.timeframes_aligned.join(', ')}</td>
+                                    <td>${result.setup}</td>
+                                    <td>${result.ticker} ${result.suggested_strike} ${result.option_type.toUpperCase()}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-outline-primary action-telegram" data-ticker="${result.ticker}" data-option-type="${result.option_type}" data-strike="${result.suggested_strike}">
+                                                <i class="fa fa-telegram"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success action-paper-trade" data-ticker="${result.ticker}" data-option-type="${result.option_type}" data-strike="${result.suggested_strike}" data-confidence="${result.confidence}">
+                                                <i class="fa fa-money"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning action-analyze" data-ticker="${result.ticker}" data-option-type="${result.option_type}" data-strike="${result.suggested_strike}">
+                                                <i class="fa fa-chart-line"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                `;
+                                overnightResultsBody.appendChild(row);
+                            });
+                            
+                            // Show results section
+                            overnightResults.style.display = 'block';
+                            
+                            // Show toast notification
+                            showToast(`Found ${data.results.length} potential overnight trades`, 'success');
+                        } else {
+                            // No results
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td colspan="7" class="text-center">No matching trades found in overnight scan</td>
+                            `;
+                            overnightResultsBody.appendChild(row);
+                            
+                            // Show results section
+                            overnightResults.style.display = 'block';
+                            
+                            // Show toast notification
+                            showToast('No matching trades found in overnight scan', 'warning');
+                        }
+                    } else {
+                        // Error
+                        console.error('Error scanning tickers:', data.message);
+                        showToast(`Error scanning tickers: ${data.message}`, 'danger');
+                    }
+                })
+                .catch(error => {
+                    // Re-enable button
+                    overnightScanBtn.disabled = false;
+                    overnightScanBtn.innerHTML = '<i class="fa fa-moon"></i> Run Overnight Scan';
+                    
+                    // Show error
+                    console.error('Error scanning tickers:', error);
+                    showToast('Error scanning tickers', 'danger');
+                });
+        });
+        
+        // Setup action handlers for overnight scan results
+        document.addEventListener('click', function(event) {
+            // Delegate event handling for dynamically created buttons
+            
+            // Telegram Action
+            if (event.target.closest('.action-telegram')) {
+                const button = event.target.closest('.action-telegram');
+                const ticker = button.dataset.ticker;
+                const optionType = button.dataset.optionType;
+                const strike = button.dataset.strike;
+                
+                // Show loading state on the button
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                button.disabled = true;
+                
+                // Call the telegram API
+                fetch('/demo/send_telegram', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        symbol: ticker,
+                        option_type: optionType,
+                        strike: strike,
+                        direction: optionType === 'call' ? 'long' : 'short'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    if (data.success) {
+                        showToast(`Signal sent to Telegram: ${ticker} ${strike} ${optionType.toUpperCase()}`, 'success');
+                        appendLogEntry('INFO', `Signal sent to Telegram: ${ticker} ${strike} ${optionType.toUpperCase()}`);
+                    } else {
+                        showToast(`Error sending to Telegram: ${data.message}`, 'danger');
+                    }
+                })
+                .catch(error => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    showToast('Error sending to Telegram', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Paper Trade Action
+            else if (event.target.closest('.action-paper-trade')) {
+                const button = event.target.closest('.action-paper-trade');
+                const ticker = button.dataset.ticker;
+                const optionType = button.dataset.optionType;
+                const strike = button.dataset.strike;
+                const confidence = button.dataset.confidence;
+                
+                // Show loading state on the button
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                button.disabled = true;
+                
+                // Call the paper trade API
+                fetch('/demo/execute_paper_trade', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        symbol: ticker,
+                        option_type: optionType,
+                        strike: strike,
+                        direction: optionType === 'call' ? 'long' : 'short',
+                        confidence: parseInt(confidence),
+                        price: 0, // price will be determined server-side
+                        contract: {
+                            symbol: `${ticker}${strike}${optionType.charAt(0).toUpperCase()}`,
+                            strike: parseFloat(strike),
+                            type: optionType,
+                            expiration: ''  // will be auto-filled server-side
+                        }
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    if (data.success) {
+                        showToast(`Paper trade executed: ${ticker} ${strike} ${optionType.toUpperCase()}`, 'success');
+                        appendLogEntry('INFO', `Paper trade executed: ${ticker} ${strike} ${optionType.toUpperCase()}`);
+                    } else {
+                        showToast(`Error executing paper trade: ${data.message}`, 'danger');
+                    }
+                })
+                .catch(error => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    showToast('Error executing paper trade', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Analysis Action
+            else if (event.target.closest('.action-analyze')) {
+                const button = event.target.closest('.action-analyze');
+                const ticker = button.dataset.ticker;
+                const optionType = button.dataset.optionType;
+                const strike = button.dataset.strike;
+                
+                // Show loading state on the button
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                button.disabled = true;
+                
+                // Call the analyze similar setups API
+                fetch('/demo/analyze_similar_setups', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        symbol: ticker,
+                        option_type: optionType,
+                        strike: strike
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    if (data.success) {
+                        // Show analysis results in a modal or toast
+                        let analysisHTML = `<strong>${ticker} ${strike} ${optionType.toUpperCase()} Analysis:</strong><br>`;
+                        
+                        if (data.setups && data.setups.length > 0) {
+                            data.setups.forEach(setup => {
+                                analysisHTML += `<div>${setup.date}: ${setup.outcome} (${Math.round(setup.similarity * 100)}% similarity)</div>`;
+                            });
+                            
+                            // Count wins/losses
+                            const wins = data.setups.filter(s => s.outcome === 'WIN').length;
+                            const winRate = Math.round((wins / data.setups.length) * 100);
+                            
+                            analysisHTML += `<div class="mt-2"><strong>Win rate: ${winRate}%</strong> (${wins}/${data.setups.length})</div>`;
+                        } else {
+                            analysisHTML += '<div>No similar historical setups found.</div>';
+                        }
+                        
+                        // Create a more detailed toast for analysis results
+                        let toastContainer = document.querySelector('.toast-container');
+                        if (!toastContainer) {
+                            toastContainer = document.createElement('div');
+                            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                            document.body.appendChild(toastContainer);
+                        }
+                        
+                        const toastId = 'analysis-toast-' + Date.now();
+                        const toast = document.createElement('div');
+                        toast.className = 'toast text-white bg-info border-0';
+                        toast.setAttribute('role', 'alert');
+                        toast.setAttribute('aria-live', 'assertive');
+                        toast.setAttribute('aria-atomic', 'true');
+                        toast.setAttribute('id', toastId);
+                        
+                        toast.innerHTML = `
+                            <div class="toast-header bg-info text-white">
+                                <strong class="me-auto">Trade Analysis</strong>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                            <div class="toast-body">
+                                ${analysisHTML}
+                            </div>
+                        `;
+                        
+                        toastContainer.appendChild(toast);
+                        
+                        const bsToast = new bootstrap.Toast(toast, {
+                            autohide: true,
+                            delay: 8000  // longer delay for analysis toast
+                        });
+                        bsToast.show();
+                        
+                        appendLogEntry('INFO', `Analyzed similar setups for: ${ticker} ${strike} ${optionType.toUpperCase()}`);
+                    } else {
+                        showToast(`Error analyzing setups: ${data.message}`, 'danger');
+                    }
+                })
+                .catch(error => {
+                    // Restore button
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                    
+                    showToast('Error analyzing setups', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        });
+        
+        // Multi-Timeframe Controls
+        const multiTimeframeToggle = document.getElementById('multiTimeframeToggle');
+        const timeframeSetSelect = document.getElementById('timeframeSetSelect');
+        
+        // Fetch the current status for multi-timeframe mode
+        function fetchMultiTimeframeStatus() {
+            fetch('/api/scanner/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Set toggle state
+                    if (data.multi_tf_mode !== undefined) {
+                        multiTimeframeToggle.checked = data.multi_tf_mode;
+                        
+                        // Update timeframe set dropdown
+                        if (data.active_tf_set_index !== undefined) {
+                            timeframeSetSelect.value = data.active_tf_set_index;
+                        }
+                        
+                        // Disable/enable timeframe set selection based on multi_tf_mode
+                        timeframeSetSelect.disabled = !data.multi_tf_mode;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking multi-timeframe status:', error);
+                });
+        }
+        
+        // Initialize multi-timeframe controls
+        fetchMultiTimeframeStatus();
+        
+        // Handle multi-timeframe toggle
+        multiTimeframeToggle.addEventListener('change', function() {
+            const enabled = this.checked;
+            const tfSetIndex = parseInt(timeframeSetSelect.value);
+            
+            // Update server-side setting
+            fetch('/api/scanner/multi-timeframe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    enabled: enabled,
+                    timeframe_set_index: tfSetIndex
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Enable/disable timeframe set dropdown
+                    timeframeSetSelect.disabled = !enabled;
+                    
+                    // Add a log entry
+                    const mode = enabled ? 'enabled' : 'disabled';
+                    const message = `Multi-timeframe mode ${mode}`;
+                    appendLogEntry('INFO', message);
+                    
+                    // Show toast notification
+                    showToast(message, 'success');
+                } else {
+                    console.error('Failed to update multi-timeframe mode:', data.error);
+                    showToast('Failed to update multi-timeframe mode: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating multi-timeframe mode:', error);
+                showToast('Error updating multi-timeframe mode', 'danger');
+            });
+        });
+        
+        // Handle timeframe set selection
+        timeframeSetSelect.addEventListener('change', function() {
+            // Only update if multi-timeframe mode is enabled
+            if (multiTimeframeToggle.checked) {
+                const tfSetIndex = parseInt(this.value);
+                
+                // Update server-side setting
+                fetch('/api/scanner/multi-timeframe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        enabled: true,
+                        timeframe_set_index: tfSetIndex
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show toast notification
+                        const timeframeSetLabels = [
+                            "All Timeframes (5m → 3h)",
+                            "Short-Term Timeframes (5m, 15m, 1h)",
+                            "Medium-Term Timeframes (15m, 45m, 3h)"
+                        ];
+                        const message = `Timeframe set updated to: ${timeframeSetLabels[tfSetIndex]}`;
+                        showToast(message, 'success');
+                        appendLogEntry('INFO', message);
+                    } else {
+                        console.error('Failed to update timeframe set:', data.error);
+                        showToast('Failed to update timeframe set: ' + data.error, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating timeframe set:', error);
+                    showToast('Error updating timeframe set', 'danger');
+                });
+            }
+        });
+        
+        // Helper function to show toast notifications
+        function showToast(message, type = 'info') {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.querySelector('.toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                document.body.appendChild(toastContainer);
+            }
+            
+            // Create toast element
+            const toastId = 'toast-' + Date.now();
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            toast.setAttribute('id', toastId);
+            
+            // Create toast content
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Add toast to container
+            toastContainer.appendChild(toast);
+            
+            // Initialize and show toast
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: 3000
+            });
+            bsToast.show();
+            
+            // Remove toast after it's hidden
+            toast.addEventListener('hidden.bs.toast', function() {
+                toast.remove();
+            });
+        }
+        
+        // Initialize the save scan and view saved scans UI
+        const saveScanBtn = document.getElementById('saveScanBtn');
+        const viewSavedScansBtn = document.getElementById('viewSavedScansBtn');
+        const hideSavedScansBtn = document.getElementById('hideSavedScansBtn');
+        const savedScansContainer = document.getElementById('savedScansContainer');
+        const savedScansBody = document.getElementById('savedScansBody');
+        
+        // Current scan results
+        let currentScanResults = null;
+        
+        // Save scan results when the button is clicked
+        saveScanBtn.addEventListener('click', function() {
+            if (!currentScanResults) {
+                appendLogEntry('WARNING', 'No scan results to save. Please run a scan first.');
+                return;
+            }
+            
+            // Prompt for a name
+            const scanName = prompt('Enter a name for this scan:', `Overnight Scan ${new Date().toLocaleDateString()}`);
+            if (!scanName) return;
+            
+            // Prepare data for saving
+            const dataToSave = {
+                name: scanName,
+                description: `Overnight ticker scan with ${currentScanResults.timeframes.length} timeframes`,
+                timeframes: currentScanResults.timeframes,
+                multi_timeframe_mode: currentScanResults.multi_timeframe_mode,
+                results: currentScanResults.results,
+                ticker_list: currentScanResults.ticker_list || []
+            };
+            
+            // Save to database
+            fetch('/demo/save_scan_results', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataToSave)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    appendLogEntry('INFO', `Scan results saved as "${data.scan_name}" (ID: ${data.scan_id})`);
+                } else {
+                    appendLogEntry('ERROR', `Failed to save scan results: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                appendLogEntry('ERROR', `Error saving scan results: ${error.message}`);
+            });
+        });
+        
+        // View saved scans button
+        viewSavedScansBtn.addEventListener('click', function() {
+            // Load saved scans
+            fetch('/demo/get_saved_scans')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear existing entries
+                    savedScansBody.innerHTML = '';
+                    
+                    if (data.scan_count === 0) {
+                        savedScansBody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center">No saved scans found</td>
+                            </tr>
+                        `;
+                    } else {
+                        // Add each scan to the table
+                        data.scans.forEach(scan => {
+                            const row = document.createElement('tr');
+                            
+                            // Format the date
+                            const scanDate = new Date(scan.timestamp);
+                            const formattedDate = scanDate.toLocaleString();
+                            
+                            row.innerHTML = `
+                                <td>${scan.name}</td>
+                                <td>${formattedDate}</td>
+                                <td>${scan.timeframes || 'N/A'}</td>
+                                <td>${scan.num_results} matches</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary view-scan-btn" data-scan-id="${scan.id}">
+                                        <i class="fa fa-eye"></i> View
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-scan-btn" data-scan-id="${scan.id}">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </td>
+                            `;
+                            
+                            savedScansBody.appendChild(row);
+                        });
+                        
+                        // Add event listeners to view buttons
+                        savedScansBody.querySelectorAll('.view-scan-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const scanId = this.getAttribute('data-scan-id');
+                                loadSavedScan(scanId);
+                            });
+                        });
+                    }
+                    
+                    // Show the saved scans container
+                    savedScansContainer.style.display = 'block';
+                } else {
+                    appendLogEntry('ERROR', `Failed to load saved scans: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                appendLogEntry('ERROR', `Error loading saved scans: ${error.message}`);
+            });
+        });
+        
+        // Hide saved scans button
+        hideSavedScansBtn.addEventListener('click', function() {
+            savedScansContainer.style.display = 'none';
+        });
+        
+        // Load a saved scan
+        function loadSavedScan(scanId) {
+            fetch(`/demo/get_scan_results/${scanId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const scan = data.scan;
+                    
+                    // Save as current scan results
+                    currentScanResults = {
+                        results: scan.results,
+                        timeframes: scan.timeframes ? scan.timeframes.split(',') : [],
+                        multi_timeframe_mode: scan.multi_timeframe_mode,
+                        ticker_list: scan.ticker_list
+                    };
+                    
+                    // Clear previous results
+                    const overnightResultsBody = document.getElementById('overnightResultsBody');
+                    overnightResultsBody.innerHTML = '';
+                    
+                    // Add each result to the table
+                    scan.results.forEach(result => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${result.ticker}</strong></td>
+                            <td><span class="badge ${result.option_type === 'call' ? 'bg-success' : 'bg-danger'}">${result.option_type.toUpperCase()}</span></td>
+                            <td><div class="progress">
+                                  <div class="progress-bar bg-info" role="progressbar" style="width: ${result.confidence}%" 
+                                       aria-valuenow="${result.confidence}" aria-valuemin="0" aria-valuemax="100">
+                                    ${result.confidence.toFixed(1)}%
+                                  </div>
+                                </div>
+                            </td>
+                            <td>${result.timeframes_aligned ? result.timeframes_aligned.join(', ') : 'N/A'}</td>
+                            <td>${result.setup || 'Standard'}</td>
+                            <td>${result.ticker} ${result.suggested_strike} ${result.option_type.toUpperCase()}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-info view-chart-btn" data-ticker="${result.ticker}">
+                                        <i class="fa fa-line-chart"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning paper-trade-btn" data-ticker="${result.ticker}" data-direction="${result.option_type}">
+                                        <i class="fa fa-flask"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        overnightResultsBody.appendChild(row);
+                    });
+                    
+                    // Show the results container
+                    const overnightResults = document.getElementById('overnightResults');
+                    overnightResults.style.display = 'block';
+                    
+                    // Hide the saved scans container
+                    savedScansContainer.style.display = 'none';
+                    
+                    // Log
+                    appendLogEntry('INFO', `Loaded saved scan "${scan.name}" with ${scan.results.length} results`);
+                } else {
+                    appendLogEntry('ERROR', `Failed to load scan: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                appendLogEntry('ERROR', `Error loading scan: ${error.message}`);
+            });
+        }
+        
+        // Note: The overnight scan function already stores results for saving in currentScanResults
+        
+        // Helper function to append a log entry to the logs section
+        function appendLogEntry(level, message) {
+            const logEntries = document.getElementById('logEntries');
+            const now = new Date();
+            const timestamp = now.toISOString().slice(0, 19).replace('T', ' ');
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${level}`;
+            logEntry.innerHTML = `
+                <span class="time">[${timestamp}]</span>
+                <span class="level">[${level}]</span>
+                <span class="message">${message}</span>
+            `;
+            
+            logEntries.prepend(logEntry);
+            
+            // Limit the number of visible logs
+            const maxLogs = 50;
+            const logs = logEntries.querySelectorAll('.log-entry');
+            if (logs.length > maxLogs) {
+                for (let i = maxLogs; i < logs.length; i++) {
+                    logs[i].remove();
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

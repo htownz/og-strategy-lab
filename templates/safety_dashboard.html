@@ -1,0 +1,723 @@
+{% extends 'base.html' %}
+
+{% block title %}Safety Net Dashboard{% endblock %}
+
+{% block styles %}
+<style>
+    .card {
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+        font-weight: 600;
+        border-radius: 8px 8px 0 0 !important;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .status-active {
+        background-color: #28a745;
+    }
+    
+    .status-inactive {
+        background-color: #dc3545;
+    }
+    
+    .status-warning {
+        background-color: #ffc107;
+    }
+    
+    .metric-card {
+        text-align: center;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .settings-section {
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+    }
+    
+    .settings-label {
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .override-section {
+        background-color: #fffbea;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .override-reason {
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-top: 10px;
+    }
+    
+    .override-section.active {
+        background-color: #ffe5e5;
+        border-left-color: #dc3545;
+    }
+    
+    .override-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .error-log {
+        padding: 8px 10px;
+        border-left: 3px solid #dc3545;
+        margin-bottom: 8px;
+    }
+    
+    .warning-log {
+        padding: 8px 10px;
+        border-left: 3px solid #ffc107;
+        margin-bottom: 8px;
+    }
+    
+    .error-count-badge {
+        float: right;
+        padding: 5px 12px;
+        border-radius: 16px;
+        font-weight: 600;
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .warning-count-badge {
+        float: right;
+        padding: 5px 12px;
+        border-radius: 16px;
+        font-weight: 600;
+        background-color: #ffc107;
+        color: black;
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 8px;
+    }
+    
+    .history-item {
+        padding: 12px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+    
+    .history-item .timestamp {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .history-item .reason {
+        margin-top: 5px;
+        padding: 5px 10px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+    }
+    
+    .admin-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-left: 6px;
+    }
+    
+    .live-mode-badge {
+        font-size: 14px;
+        padding: 5px 12px;
+        border-radius: 16px;
+        font-weight: 700;
+        margin-left: 10px;
+    }
+    
+    .live-mode-badge.active {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .live-mode-badge.inactive {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        Safety Net Dashboard
+                        {% if live_mode_enabled %}
+                        <span class="live-mode-badge active">LIVE MODE</span>
+                        {% else %}
+                        <span class="live-mode-badge inactive">DEMO MODE</span>
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mt-2">Monitoring and controlling live trading safety</p>
+                </div>
+                <div>
+                    <button id="refreshBtn" class="btn btn-outline-secondary mr-2">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="status-indicator {% if safety_net_enabled %}status-active{% else %}status-inactive{% endif %}"></span>
+                            <div id="safetyNetStatus" class="metric-value">{{ "Active" if safety_net_enabled else "Inactive" }}</div>
+                        </div>
+                        <div class="metric-label">AI Safety Net</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="status-indicator {% if live_mode_enabled %}status-active{% else %}status-inactive{% endif %}"></span>
+                            <div id="liveModeStatus" class="metric-value">{{ "Enabled" if live_mode_enabled else "Disabled" }}</div>
+                        </div>
+                        <div class="metric-label">Live Trading Mode</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="errorCount" class="metric-value text-danger">{{ error_count }}</div>
+                        <div class="metric-label">Errors (24h)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="warningCount" class="metric-value text-warning">{{ warning_count }}</div>
+                        <div class="metric-label">Warnings (24h)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Safety Control Panel -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Safety Control Panel</span>
+                    <button id="saveSettingsBtn" class="btn btn-sm btn-primary">Save Settings</button>
+                </div>
+                <div class="card-body">
+                    <div class="settings-section">
+                        <div class="settings-label">AI Safety Net Settings</div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="safetyNetEnabledSwitch" {% if safety_net_enabled %}checked{% endif %}>
+                                <label class="custom-control-label" for="safetyNetEnabledSwitch">Enable AI Safety Net</label>
+                            </div>
+                            <small class="form-text text-muted">Auto-disables live trading when errors or drawdowns exceed thresholds</small>
+                        </div>
+                        
+                        <div class="form-group mt-3">
+                            <label for="maxDrawdownInput">Maximum Drawdown Percentage</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="maxDrawdownInput" value="{{ max_drawdown_pct }}" min="1" max="50">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Auto-disable live trading if drawdown exceeds this percentage</small>
+                        </div>
+                        
+                        <div class="form-group mt-3">
+                            <label for="errorThresholdInput">Error Threshold</label>
+                            <input type="number" class="form-control" id="errorThresholdInput" value="{{ error_threshold }}" min="1" max="20">
+                            <small class="form-text text-muted">Number of errors in monitoring interval that triggers auto-disable</small>
+                        </div>
+                        
+                        <div class="form-group mt-3">
+                            <label for="monitorIntervalInput">Monitoring Interval</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="monitorIntervalInput" value="{{ monitor_interval }}" min="1" max="120">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">minutes</span>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Time window for counting errors</small>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <div class="settings-label">Live Trading Mode</div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="liveModeSwitch" {% if live_mode_enabled %}checked{% endif %}>
+                                <label class="custom-control-label" for="liveModeSwitch">Enable Live Trading</label>
+                            </div>
+                            <small class="form-text text-muted">When enabled, real trades will be executed via Alpaca</small>
+                        </div>
+                        
+                        <div id="confirmationModal" class="modal fade" tabindex="-1" role="dialog">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Confirm Live Mode Change</h5>
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p id="confirmationMessage">Are you sure you want to enable live trading mode? This will use real funds for trades.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                        <button id="confirmLiveModeBtn" type="button" class="btn btn-danger">Confirm</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if last_triggered %}
+                    <div class="override-section {% if admin_override_enabled %}active{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="settings-label mb-0">
+                                    <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                                    Safety Net Triggered
+                                    <span class="badge badge-danger ml-2">{{ trigger_reason|truncate(30) }}</span>
+                                </div>
+                                <small class="text-muted">
+                                    {{ last_triggered }} 
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mt-3">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="adminOverrideSwitch">
+                                <label class="custom-control-label" for="adminOverrideSwitch">
+                                    <span class="admin-badge">ADMIN ONLY</span>
+                                    Override Safety Lockdown
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Warning: This will bypass AI safety measures and re-enable live trading despite risk indicators
+                            </small>
+                        </div>
+                        
+                        <div id="overrideOptionsForm" style="display: none;">
+                            <div class="form-group mt-2">
+                                <label for="overrideReasonInput">Reason for Override <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="overrideReasonInput" rows="2" placeholder="Enter reason for bypassing safety measures..."></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="overrideExpirationInput">Auto-Expire After</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="overrideExpirationInput" value="60" min="1" max="1440">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">minutes</span>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">Override will automatically expire after this time</small>
+                            </div>
+                            
+                            <button id="applyOverrideBtn" class="btn btn-warning">
+                                <i class="fas fa-shield-alt"></i> Apply Override & Enable Live Trading
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <span>Recent System Events</span>
+                    <span class="error-count-badge mr-2">{{ error_count }} Errors</span>
+                    <span class="warning-count-badge">{{ warning_count }} Warnings</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for error in errors %}
+                    <div class="{% if error.level == 'ERROR' %}error-log{% else %}warning-log{% endif %}">
+                        <div class="d-flex justify-content-between">
+                            <span class="font-weight-bold">{{ error.module }}</span>
+                            <small class="text-muted">{{ error.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                        </div>
+                        <div>{{ error.message }}</div>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        No recent errors or warnings
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    Safety History
+                </div>
+                <div class="card-body">
+                    <div id="safetyHistory">
+                        <!-- Safety history will be populated here -->
+                        <div class="text-center text-muted py-4">
+                            Loading safety history...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize Socket.IO connection
+    const socket = io();
+    
+    // DOM elements
+    const safetyNetEnabledSwitch = document.getElementById('safetyNetEnabledSwitch');
+    const liveModeSwitch = document.getElementById('liveModeSwitch');
+    const adminOverrideSwitch = document.getElementById('adminOverrideSwitch');
+    const overrideOptionsForm = document.getElementById('overrideOptionsForm');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const applyOverrideBtn = document.getElementById('applyOverrideBtn');
+    const confirmLiveModeBtn = document.getElementById('confirmLiveModeBtn');
+    
+    // Setup
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle override options form
+        if (adminOverrideSwitch) {
+            adminOverrideSwitch.addEventListener('change', function() {
+                overrideOptionsForm.style.display = this.checked ? 'block' : 'none';
+            });
+        }
+        
+        // Live mode switch needs confirmation
+        liveModeSwitch.addEventListener('change', function() {
+            // Show confirmation modal when enabling live mode
+            if (this.checked) {
+                $('#confirmationModal').modal('show');
+                // Reset switch until confirmed
+                this.checked = false;
+            } else {
+                // When disabling, no confirmation needed
+                updateLiveMode(false);
+            }
+        });
+        
+        // Confirm live mode enable
+        confirmLiveModeBtn.addEventListener('click', function() {
+            liveModeSwitch.checked = true;
+            updateLiveMode(true);
+            $('#confirmationModal').modal('hide');
+        });
+        
+        // Save settings button
+        saveSettingsBtn.addEventListener('click', saveSettings);
+        
+        // Refresh button
+        refreshBtn.addEventListener('click', refreshData);
+        
+        // Apply override button
+        if (applyOverrideBtn) {
+            applyOverrideBtn.addEventListener('click', applyOverride);
+        }
+        
+        // Listen for Socket.IO events
+        socket.on('live_mode_update', handleLiveModeUpdate);
+        socket.on('safety_net_update', handleSafetyNetUpdate);
+        
+        // Load initial data
+        loadSafetyHistory();
+        
+        // Request current statuses
+        socket.emit('request_live_mode_status');
+    });
+    
+    // Save safety net settings
+    function saveSettings() {
+        const settings = {
+            ai_safety_net_enabled: safetyNetEnabledSwitch.checked,
+            ai_safety_net_max_drawdown_pct: parseFloat(document.getElementById('maxDrawdownInput').value),
+            ai_safety_net_error_threshold: parseInt(document.getElementById('errorThresholdInput').value),
+            ai_safety_net_monitor_interval_minutes: parseInt(document.getElementById('monitorIntervalInput').value)
+        };
+        
+        fetch('/safety-net/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Settings saved successfully', 'success');
+            } else {
+                showAlert('Error saving settings: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving settings:', error);
+            showAlert('Error saving settings', 'danger');
+        });
+    }
+    
+    // Update live mode
+    function updateLiveMode(enabled) {
+        fetch('/safety-net/api/live-mode', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                enabled: enabled,
+                reason: enabled ? 'Manually enabled by user' : 'Manually disabled by user'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(`Live mode ${enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+                updateLiveModeUI(enabled);
+            } else {
+                showAlert('Error updating live mode: ' + data.message, 'danger');
+                liveModeSwitch.checked = !enabled;  // Revert switch
+            }
+        })
+        .catch(error => {
+            console.error('Error updating live mode:', error);
+            showAlert('Error updating live mode', 'danger');
+            liveModeSwitch.checked = !enabled;  // Revert switch
+        });
+    }
+    
+    // Apply admin override
+    function applyOverride() {
+        const reason = document.getElementById('overrideReasonInput').value.trim();
+        if (!reason) {
+            showAlert('Please enter a reason for the override', 'warning');
+            return;
+        }
+        
+        const expiration = parseInt(document.getElementById('overrideExpirationInput').value);
+        
+        fetch('/safety-net/api/admin-override', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                enabled: true,
+                reason: reason,
+                expiration_minutes: expiration
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Admin override applied successfully', 'success');
+                // Also enable live mode
+                liveModeSwitch.checked = true;
+                updateLiveModeUI(true);
+                
+                // Refresh data
+                refreshData();
+            } else {
+                showAlert('Error applying override: ' + data.message, 'danger');
+                adminOverrideSwitch.checked = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error applying override:', error);
+            showAlert('Error applying override', 'danger');
+            adminOverrideSwitch.checked = false;
+        });
+    }
+    
+    // Handle live mode update from Socket.IO
+    function handleLiveModeUpdate(data) {
+        updateLiveModeUI(data.enabled);
+    }
+    
+    // Handle safety net update from Socket.IO
+    function handleSafetyNetUpdate(data) {
+        safetyNetEnabledSwitch.checked = data.enabled;
+        document.getElementById('safetyNetStatus').textContent = data.enabled ? 'Active' : 'Inactive';
+        
+        // If safety net was triggered, reload the page to show trigger info
+        if (data.triggered) {
+            setTimeout(() => { location.reload(); }, 3000);
+        }
+    }
+    
+    // Update UI elements for live mode
+    function updateLiveModeUI(enabled) {
+        liveModeSwitch.checked = enabled;
+        document.getElementById('liveModeStatus').textContent = enabled ? 'Enabled' : 'Disabled';
+        
+        // Update badges
+        const liveBadge = document.querySelector('.live-mode-badge');
+        if (enabled) {
+            liveBadge.textContent = 'LIVE MODE';
+            liveBadge.classList.add('active');
+            liveBadge.classList.remove('inactive');
+        } else {
+            liveBadge.textContent = 'DEMO MODE';
+            liveBadge.classList.add('inactive');
+            liveBadge.classList.remove('active');
+        }
+    }
+    
+    // Load safety history
+    function loadSafetyHistory() {
+        const historyContainer = document.getElementById('safetyHistory');
+        
+        fetch('/safety-net/api/history')
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    historyContainer.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            No safety events found
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let historyHtml = '';
+                data.forEach(event => {
+                    const date = new Date(event.timestamp);
+                    const formattedDate = date.toLocaleString();
+                    
+                    historyHtml += `
+                        <div class="history-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="font-weight-bold">${event.type}</span>
+                                    ${event.override ? '<span class="badge badge-warning ml-2">Override</span>' : ''}
+                                </div>
+                                <span class="timestamp">${formattedDate}</span>
+                            </div>
+                            ${event.reason ? `<div class="reason">${event.reason}</div>` : ''}
+                            ${event.user ? `<small class="text-muted">By: ${event.user}</small>` : ''}
+                        </div>
+                    `;
+                });
+                
+                historyContainer.innerHTML = historyHtml;
+            })
+            .catch(error => {
+                console.error('Error loading safety history:', error);
+                historyContainer.innerHTML = `
+                    <div class="text-center text-danger py-4">
+                        Error loading safety history
+                    </div>
+                `;
+            });
+    }
+    
+    // Refresh all data
+    function refreshData() {
+        loadSafetyHistory();
+        socket.emit('request_live_mode_status');
+        
+        // Optionally reload the page to refresh error logs
+        location.reload();
+    }
+    
+    // Show alert notification
+    function showAlert(message, type = 'success') {
+        const alertBox = document.createElement('div');
+        alertBox.className = `alert alert-${type} alert-dismissible fade show`;
+        alertBox.style.position = 'fixed';
+        alertBox.style.top = '20px';
+        alertBox.style.right = '20px';
+        alertBox.style.zIndex = '1050';
+        alertBox.innerHTML = `
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        `;
+        
+        document.body.appendChild(alertBox);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertBox.classList.remove('show');
+            setTimeout(() => alertBox.remove(), 150);
+        }, 5000);
+    }
+</script>
+{% endblock %}

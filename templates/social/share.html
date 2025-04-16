@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Share Your Trading Insights{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row g-4">
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-share-nodes me-2 text-accent"></i>
+                        Share Options
+                    </h5>
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('social.share_signal_page') }}" class="btn btn-outline-secondary {% if active_tab == 'signal' %}active{% endif %} text-start">
+                            <i class="fas fa-bolt me-2"></i>
+                            Share Signal
+                        </a>
+                        <a href="{{ url_for('social.share_performance_page') }}" class="btn btn-outline-secondary {% if active_tab == 'performance' %}active{% endif %} text-start">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Share Performance
+                        </a>
+                        <a href="{{ url_for('social.share_strategy_page') }}" class="btn btn-outline-secondary {% if active_tab == 'strategy' %}active{% endif %} text-start">
+                            <i class="fas fa-sitemap me-2"></i>
+                            Share Strategy
+                        </a>
+                        <hr>
+                        <a href="{{ url_for('social.social_templates') }}" class="btn btn-outline-secondary {% if active_tab == 'templates' %}active{% endif %} text-start">
+                            <i class="fas fa-pen-to-square me-2"></i>
+                            Customize Templates
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h4 class="mb-4">{% block share_title %}{% endblock %}</h4>
+                    
+                    {% block share_content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize social sharing buttons
+    const shareBtns = document.querySelectorAll('.social-share-btn');
+    
+    shareBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.getAttribute('href');
+            const platform = this.getAttribute('data-platform');
+            
+            // Open share dialog in a popup window
+            const width = 600;
+            const height = 400;
+            const left = (window.innerWidth - width) / 2;
+            const top = (window.innerHeight - height) / 2;
+            
+            window.open(url, `Share on ${platform}`, `width=${width},height=${height},left=${left},top=${top}`);
+            
+            // Track sharing event
+            trackSocialShare(platform, this.getAttribute('data-content-type'), this.getAttribute('data-content-id'));
+        });
+    });
+    
+    // Function to track social sharing analytics
+    function trackSocialShare(platform, contentType, contentId) {
+        fetch('/social/track', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                platform: platform,
+                content_type: contentType,
+                content_id: contentId
+            })
+        })
+        .then(response => response.json())
+        .then(data => console.log('Tracking data:', data))
+        .catch(error => console.error('Error tracking share:', error));
+    }
+    
+    // Preview functionality
+    const previewBtn = document.getElementById('preview-share');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            const contentType = this.getAttribute('data-content-type');
+            const contentId = this.getAttribute('data-content-id');
+            
+            // Show preview modal
+            const previewModal = new bootstrap.Modal(document.getElementById('sharePreviewModal'));
+            previewModal.show();
+            
+            // Update preview content
+            updatePreviewContent(contentType, contentId);
+        });
+    }
+    
+    // Function to update preview content
+    function updatePreviewContent(contentType, contentId) {
+        fetch(`/social/preview/${contentType}/${contentId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('preview-title').textContent = data.title;
+            document.getElementById('preview-text').textContent = data.text;
+            
+            if (data.image) {
+                document.getElementById('preview-image').src = data.image;
+                document.getElementById('preview-image-container').classList.remove('d-none');
+            } else {
+                document.getElementById('preview-image-container').classList.add('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching preview:', error);
+            document.getElementById('preview-title').textContent = 'Error loading preview';
+            document.getElementById('preview-text').textContent = 'Could not load preview content.';
+            document.getElementById('preview-image-container').classList.add('d-none');
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Optimize Strategy{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.strategy_details', strategy_id=strategy.id) }}">Strategy Details</a></li>
+            <li class="breadcrumb-item active">Optimize Strategy</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Optimize Strategy: {{ strategy.name }}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('backtest.optimize_strategy', strategy_id=strategy.id) }}">
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <i class="bi bi-info-circle fs-4 me-3 align-self-center"></i>
+                        <div>
+                            <h5 class="mb-2">About Parameter Optimization</h5>
+                            <p class="mb-0">
+                                The system will test multiple parameter combinations to find the best configuration for your strategy.
+                                Select which parameters to optimize and the value ranges to test below. This may take some time depending
+                                on the number of combinations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="optimization_target" class="form-label">Optimization Target</label>
+                            <select name="optimization_target" id="optimization_target" class="form-select">
+                                {% for value, label in optimization_targets %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">The performance metric you want to maximize.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="timeframe" class="form-label">Timeframe</label>
+                            <select name="timeframe" id="timeframe" class="form-select">
+                                <option value="5m">5 Minute</option>
+                                <option value="15m">15 Minute</option>
+                                <option value="1h">1 Hour</option>
+                                <option value="4h">4 Hour</option>
+                                <option value="1D" selected>Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ start_date }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ end_date }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="symbols" class="form-label">Symbols (comma-separated)</label>
+                    <input type="text" class="form-control" id="symbols" name="symbols" 
+                           value="{{ default_symbols }}" placeholder="AAPL,MSFT,AMZN,QQQ" required>
+                    <div class="form-text">Enter the symbols you want to test, separated by commas.</div>
+                </div>
+
+                <hr class="my-4">
+                <h5 class="mb-3">Parameters to Optimize</h5>
+
+                <!-- EMA Periods -->
+                {% if 'ema_periods' in params %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="optimize_ema" name="optimize_ema" checked>
+                                <label class="form-check-label" for="optimize_ema">
+                                    <strong>{{ params.ema_periods.description }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="ema_options_container">
+                            <p class="small text-muted mb-2">Current value: <code>{{ params.ema_periods.current }}</code></p>
+                            <p class="small mb-3">Select EMA period combinations to test:</p>
+                            
+                            {% for option in params.ema_periods.options %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="ema_periods_options" 
+                                           id="ema_option_{{ loop.index }}" value="{{ option }}" 
+                                           {% if option == params.ema_periods.current %}checked{% endif %}>
+                                    <label class="form-check-label" for="ema_option_{{ loop.index }}">
+                                        {{ option }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="ema_periods_options" 
+                                       id="ema_option_custom" value="custom">
+                                <label class="form-check-label" for="ema_option_custom">
+                                    Custom: <input type="text" class="form-control form-control-sm d-inline-block w-auto" 
+                                                  id="ema_custom" placeholder="e.g., [8,21,55]" style="margin-top: -3px;">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Volume Threshold -->
+                {% if 'volume_threshold' in params %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="optimize_volume" name="optimize_volume" checked>
+                                <label class="form-check-label" for="optimize_volume">
+                                    <strong>{{ params.volume_threshold.description }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="volume_options_container">
+                            <p class="small text-muted mb-2">Current value: <code>{{ params.volume_threshold.current }}</code></p>
+                            <p class="small mb-3">Define range of values to test:</p>
+                            
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-4">
+                                    <label for="volume_threshold_min" class="form-label">Min Value</label>
+                                    <input type="number" class="form-control" id="volume_threshold_min" name="volume_threshold_min" 
+                                           value="{{ params.volume_threshold.min }}" min="0.1" max="10" step="0.1">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="volume_threshold_max" class="form-label">Max Value</label>
+                                    <input type="number" class="form-control" id="volume_threshold_max" name="volume_threshold_max" 
+                                           value="{{ params.volume_threshold.max }}" min="0.1" max="10" step="0.1">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="volume_threshold_step" class="form-label">Step</label>
+                                    <input type="number" class="form-control" id="volume_threshold_step" name="volume_threshold_step" 
+                                           value="{{ params.volume_threshold.step }}" min="0.1" max="1" step="0.1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Min Conditions Required -->
+                {% if 'min_conditions_required' in params %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="optimize_conditions" name="optimize_conditions" checked>
+                                <label class="form-check-label" for="optimize_conditions">
+                                    <strong>{{ params.min_conditions_required.description }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="conditions_options_container">
+                            <p class="small text-muted mb-2">Current value: <code>{{ params.min_conditions_required.current }}</code></p>
+                            <p class="small mb-3">Define range of values to test:</p>
+                            
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-6">
+                                    <label for="min_conditions_min" class="form-label">Min Value</label>
+                                    <input type="number" class="form-control" id="min_conditions_min" name="min_conditions_min" 
+                                           value="{{ params.min_conditions_required.min }}" min="1" max="4" step="1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="min_conditions_max" class="form-label">Max Value</label>
+                                    <input type="number" class="form-control" id="min_conditions_max" name="min_conditions_max" 
+                                           value="{{ params.min_conditions_required.max }}" min="1" max="4" step="1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('backtest.strategy_details', strategy_id=strategy.id) }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-play-fill me-1"></i> Start Optimization
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle optimization sections
+        document.getElementById('optimize_ema').addEventListener('change', function() {
+            document.getElementById('ema_options_container').style.display = this.checked ? 'block' : 'none';
+        });
+        
+        document.getElementById('optimize_volume').addEventListener('change', function() {
+            document.getElementById('volume_options_container').style.display = this.checked ? 'block' : 'none';
+        });
+        
+        document.getElementById('optimize_conditions').addEventListener('change', function() {
+            document.getElementById('conditions_options_container').style.display = this.checked ? 'block' : 'none';
+        });
+        
+        // Custom EMA handling
+        const emaCustomOption = document.getElementById('ema_option_custom');
+        const emaCustomInput = document.getElementById('ema_custom');
+        
+        emaCustomInput.addEventListener('input', function() {
+            emaCustomOption.value = this.value;
+            emaCustomOption.checked = true;
+        });
+        
+        // Validate form before submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const startDate = new Date(document.getElementById('start_date').value);
+            const endDate = new Date(document.getElementById('end_date').value);
+            
+            if (startDate > endDate) {
+                e.preventDefault();
+                alert('Start date cannot be after end date.');
+                return;
+            }
+            
+            // Make sure at least one parameter is selected
+            const optimizeEma = document.getElementById('optimize_ema');
+            const optimizeVolume = document.getElementById('optimize_volume');
+            const optimizeConditions = document.getElementById('optimize_conditions');
+            
+            if ((optimizeEma && !optimizeEma.checked) && 
+                (optimizeVolume && !optimizeVolume.checked) && 
+                (optimizeConditions && !optimizeConditions.checked)) {
+                e.preventDefault();
+                alert('Please select at least one parameter to optimize.');
+                return;
+            }
+            
+            // Validate EMA options if selected
+            if (optimizeEma && optimizeEma.checked) {
+                const emaOptions = document.querySelectorAll('input[name="ema_periods_options"]:checked');
+                if (emaOptions.length === 0) {
+                    e.preventDefault();
+                    alert('Please select at least one EMA period option to test.');
+                    return;
+                }
+                
+                // Validate custom EMA input if selected
+                if (emaCustomOption.checked) {
+                    try {
+                        const customValue = JSON.parse(emaCustomInput.value);
+                        if (!Array.isArray(customValue) || customValue.length === 0) {
+                            throw new Error('Invalid format');
+                        }
+                        emaCustomOption.value = emaCustomInput.value;
+                    } catch (err) {
+                        e.preventDefault();
+                        alert('Invalid format for custom EMA periods. Use format like [8,21,55]');
+                        return;
+                    }
+                }
+            }
+            
+            // Validate volume range if selected
+            if (optimizeVolume && optimizeVolume.checked) {
+                const minVol = parseFloat(document.getElementById('volume_threshold_min').value);
+                const maxVol = parseFloat(document.getElementById('volume_threshold_max').value);
+                const stepVol = parseFloat(document.getElementById('volume_threshold_step').value);
+                
+                if (minVol >= maxVol) {
+                    e.preventDefault();
+                    alert('Minimum volume threshold must be less than maximum.');
+                    return;
+                }
+                
+                if (stepVol <= 0) {
+                    e.preventDefault();
+                    alert('Volume threshold step must be greater than 0.');
+                    return;
+                }
+            }
+            
+            // Validate min conditions range if selected
+            if (optimizeConditions && optimizeConditions.checked) {
+                const minCond = parseInt(document.getElementById('min_conditions_min').value);
+                const maxCond = parseInt(document.getElementById('min_conditions_max').value);
+                
+                if (minCond > maxCond) {
+                    e.preventDefault();
+                    alert('Minimum conditions value must be less than or equal to maximum.');
+                    return;
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

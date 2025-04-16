@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+
+{% block title %}Confidence Intelligence Dashboard{% endblock %}
+
+{% block styles %}
+<style>
+    .card {
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+        font-weight: 600;
+        border-radius: 8px 8px 0 0 !important;
+    }
+    
+    .tier-badge {
+        padding: 5px 12px;
+        border-radius: 16px;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 8px;
+    }
+    
+    .tier-90-100 {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .tier-80-89 {
+        background-color: #4cd964;
+        color: white;
+    }
+    
+    .tier-70-79 {
+        background-color: #ffcc00;
+        color: #212529;
+    }
+    
+    .tier-60-69 {
+        background-color: #ff9500;
+        color: white;
+    }
+    
+    .tier-0-59 {
+        background-color: #ff3b30;
+        color: white;
+    }
+    
+    .strategy-card {
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border-left: 4px solid transparent;
+    }
+    
+    .strategy-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .strategy-card.active {
+        border-left-color: #007bff;
+    }
+    
+    .chart-container {
+        height: 300px;
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        text-align: center;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .correlation-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+    
+    .correlation-value {
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .correlation-label {
+        font-size: 14px;
+        text-align: center;
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 8px;
+    }
+    
+    .widget-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .widget-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .widget-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .table-sm {
+        font-size: 0.875rem;
+    }
+    
+    .table-sm th, .table-sm td {
+        padding: 0.5rem;
+    }
+    
+    .tier-column {
+        width: 120px;
+    }
+    
+    .trade-count-column {
+        width: 80px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>Confidence Intelligence Dashboard</h2>
+                <div>
+                    <select id="periodSelect" class="form-control d-inline-block mr-2" style="width: auto;">
+                        <option value="7">Last 7 Days</option>
+                        <option value="14">Last 14 Days</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="90">Last 3 Months</option>
+                    </select>
+                    <select id="strategySelect" class="form-control d-inline-block mr-2" style="width: auto;">
+                        <option value="">All Strategies</option>
+                        {% for strategy in strategies %}
+                        <option value="{{ strategy.id }}">{{ strategy.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button id="exportBtn" class="btn btn-outline-secondary mr-2" title="Export as CSV">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                    <button id="generateDataBtn" class="btn btn-primary" title="Generate sample data for demonstration">
+                        <i class="fas fa-chart-line"></i> Generate Sample Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sample Data Generation Status Alert -->
+    <div id="dataGenerationAlert" class="alert alert-info alert-dismissible fade show mb-4" role="alert" style="display: none;">
+        <span id="dataGenerationMessage">Generating sample data...</span>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    
+    <!-- Top Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="totalTradesValue" class="metric-value">0</div>
+                        <div class="metric-label">Total Trades</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="avgConfidenceValue" class="metric-value">0</div>
+                        <div class="metric-label">Avg Confidence</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="winRateValue" class="metric-value">0%</div>
+                        <div class="metric-label">Win Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="metric-card">
+                        <div id="avgRoiValue" class="metric-value">0%</div>
+                        <div class="metric-label">Avg ROI</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="correlation-container">
+                        <div class="row">
+                            <div class="col-6 text-center">
+                                <div id="roiCorrelationValue" class="correlation-value">0.00</div>
+                                <div class="correlation-label">
+                                    Confidence → ROI<br>
+                                    <span id="roiCorrelationStrength" class="badge badge-secondary">No correlation</span>
+                                </div>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div id="pnlCorrelationValue" class="correlation-value">0.00</div>
+                                <div class="correlation-label">
+                                    Confidence → P&L<br>
+                                    <span id="pnlCorrelationStrength" class="badge badge-secondary">No correlation</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Correlation Scatter Plot -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    Confidence vs. ROI Correlation
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <div class="chart-container">
+                            <canvas id="correlationChart"></canvas>
+                        </div>
+                        <div id="correlationChartLoading" class="loading-overlay" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Confidence Tier Performance -->
+            <div class="card">
+                <div class="card-header">
+                    Performance by Confidence Tier
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <canvas id="winRateChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <canvas id="roiChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="tierChartsLoading" class="loading-overlay" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Strategy Breakdown -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    Strategy Breakdown
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <div id="strategyBreakdown">
+                            <!-- Strategy cards will be populated here -->
+                            <div class="text-center text-muted py-4">
+                                No strategy data available
+                            </div>
+                        </div>
+                        <div id="strategyBreakdownLoading" class="loading-overlay" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Confidence Tier Breakdown -->
+            <div class="card">
+                <div class="card-header">
+                    Confidence Tier Breakdown
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="tier-column">Tier</th>
+                                        <th class="trade-count-column">Trades</th>
+                                        <th>Win Rate</th>
+                                        <th>Avg ROI</th>
+                                        <th>Avg P&L</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tierBreakdownTable">
+                                    <!-- Table rows will be populated here -->
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No data available</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="tierBreakdownLoading" class="loading-overlay" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="{{ url_for('static', filename='js/confidence_dashboard.js') }}"></script>
+{% endblock %}

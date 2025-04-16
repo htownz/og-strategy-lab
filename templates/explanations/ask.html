@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Ask Trading Assistant{% endblock %}
+
+{% block additional_head %}
+<style>
+    .chat-container {
+        height: calc(100vh - 300px);
+        min-height: 400px;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .messages-area {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background-color: var(--bs-dark);
+    }
+    .input-area {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+    .message {
+        margin-bottom: 1.5rem;
+        max-width: 80%;
+    }
+    .message.user {
+        margin-left: auto;
+        background-color: var(--bs-primary);
+        color: white;
+        border-radius: 1rem 1rem 0 1rem;
+        padding: 0.75rem 1rem;
+    }
+    .message.assistant {
+        margin-right: auto;
+        background-color: var(--bs-secondary);
+        color: white;
+        border-radius: 1rem 1rem 1rem 0;
+        padding: 0.75rem 1rem;
+    }
+    .message-time {
+        font-size: 0.8rem;
+        opacity: 0.7;
+        margin-top: 0.25rem;
+    }
+    .suggestions-container {
+        margin-top: 1rem;
+    }
+    .suggestion-chip {
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+    }
+    .suggestion-chip:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Ask Trading Assistant</h1>
+        <div>
+            <a href="{{ url_for('explanation.explanation_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-chat-dots"></i> Trading Assistant
+                        </h5>
+                        <span class="badge bg-success" id="ai-status">Ready</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="chat-container">
+                        <div class="messages-area" id="messages-area">
+                            <div class="message assistant">
+                                <div>Hello! I'm your OG Strategy Trading Assistant. How can I help you understand trading strategies, signals, or market patterns?</div>
+                                <div class="message-time">Now</div>
+                            </div>
+                        </div>
+                        <div class="input-area">
+                            <form id="question-form">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="question-input" placeholder="Ask me about trading strategies, signals, or patterns...">
+                                    <button class="btn btn-primary" type="submit" id="submit-button">
+                                        <i class="bi bi-send"></i> Send
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0">Example Questions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="suggestions-container">
+                        <div class="suggestion-chip card p-2 mb-2" data-question="Can you explain the Ripster EMA Cloud pattern in simple terms?">
+                            <div class="small"><strong>Ripster EMA Cloud Pattern</strong></div>
+                            <div class="text-muted small">Can you explain the Ripster EMA Cloud pattern in simple terms?</div>
+                        </div>
+                        <div class="suggestion-chip card p-2 mb-2" data-question="What's the difference between order blocks and fair value gaps?">
+                            <div class="small"><strong>OB vs FVG</strong></div>
+                            <div class="text-muted small">What's the difference between order blocks and fair value gaps?</div>
+                        </div>
+                        <div class="suggestion-chip card p-2 mb-2" data-question="How should I set stop losses when using the OG Strategy?">
+                            <div class="small"><strong>Stop Loss Placement</strong></div>
+                            <div class="text-muted small">How should I set stop losses when using the OG Strategy?</div>
+                        </div>
+                        <div class="suggestion-chip card p-2 mb-2" data-question="What market conditions work best for the OG Strategy?">
+                            <div class="small"><strong>Optimal Market Conditions</strong></div>
+                            <div class="text-muted small">What market conditions work best for the OG Strategy?</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0">Trading Context</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="include-signals" checked>
+                        <label class="form-check-label" for="include-signals">Include recent signals</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="include-market" checked>
+                        <label class="form-check-label" for="include-market">Include market conditions</label>
+                    </div>
+                    <p class="text-muted small">
+                        Including context helps the AI assistant provide more relevant answers based on your recent trading activity.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Format current time
+    function formatTime() {
+        const now = new Date();
+        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Update the initial message time
+    $('.message-time').first().text(formatTime());
+    
+    // Scroll to bottom of messages
+    function scrollToBottom() {
+        const messagesArea = document.getElementById('messages-area');
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+    
+    // Add a message to the chat
+    function addMessage(text, isUser = false) {
+        const messageClass = isUser ? 'user' : 'assistant';
+        const message = $(`
+            <div class="message ${messageClass}">
+                <div>${text}</div>
+                <div class="message-time">${formatTime()}</div>
+            </div>
+        `);
+        
+        $('#messages-area').append(message);
+        scrollToBottom();
+    }
+    
+    // Handle form submission
+    $('#question-form').submit(function(e) {
+        e.preventDefault();
+        
+        const question = $('#question-input').val().trim();
+        if (!question) return;
+        
+        // Add user message
+        addMessage(question, true);
+        
+        // Clear input
+        $('#question-input').val('');
+        
+        // Show waiting indicator
+        $('#ai-status').removeClass('bg-success').addClass('bg-warning').text('Thinking...');
+        
+        // Get context options
+        const includeSignals = $('#include-signals').is(':checked');
+        const includeMarket = $('#include-market').is(':checked');
+        
+        // Prepare data for API call
+        const data = {
+            question: question,
+            context: {
+                include_signals: includeSignals,
+                include_market: includeMarket
+            }
+        };
+        
+        // Call API
+        $.ajax({
+            url: '/api/explanations/answer_question',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(response) {
+                // Reset status
+                $('#ai-status').removeClass('bg-warning').addClass('bg-success').text('Ready');
+                
+                if (response.success) {
+                    // Add assistant message with formatted response
+                    const answer = response.data.answer;
+                    addMessage(formatMarkdown(answer));
+                } else {
+                    // Show error
+                    addMessage(`I'm sorry, I couldn't process your question: ${response.error || 'Unknown error'}`);
+                }
+            },
+            error: function(xhr, status, error) {
+                // Reset status
+                $('#ai-status').removeClass('bg-warning').addClass('bg-success').text('Ready');
+                
+                // Show error
+                addMessage(`I'm sorry, there was a problem connecting to the server. Please try again later.`);
+            }
+        });
+    });
+    
+    // Handle example question clicks
+    $('.suggestion-chip').click(function() {
+        const question = $(this).data('question');
+        $('#question-input').val(question);
+        $('#question-form').submit();
+    });
+    
+    // Simple markdown formatter (supports bold, italic, lists, headers)
+    function formatMarkdown(text) {
+        if (!text) return '';
+        
+        // Replace headers
+        text = text.replace(/^### (.*?)$/gm, '<h5>$1</h5>');
+        text = text.replace(/^## (.*?)$/gm, '<h4>$1</h4>');
+        text = text.replace(/^# (.*?)$/gm, '<h3>$1</h3>');
+        
+        // Replace bold and italic
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Replace lists
+        text = text.replace(/^\- (.*?)$/gm, '<li>$1</li>');
+        text = text.replace(/(<li>.*?<\/li>)\n(<li>)/g, '$1$2');
+        text = text.replace(/(<li>.*?<\/li>\n)+/g, '<ul>$&</ul>');
+        
+        // Replace paragraphs
+        text = text.replace(/^([^<].*?)$/gm, '<p>$1</p>');
+        text = text.replace(/<p><\/p>/g, '');
+        
+        return text;
+    }
+});
+</script>
+{% endblock %}

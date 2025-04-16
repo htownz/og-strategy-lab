@@ -1,0 +1,554 @@
+{% extends "base.html" %}
+
+{% block title %}OG Strategy Coach | Coaching Session{% endblock %}
+
+{% block head %}
+<style>
+    .chat-container {
+        height: calc(100vh - 350px);
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chat-header {
+        padding: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .chat-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    
+    .chat-footer {
+        padding: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .coach-message {
+        background-color: rgba(79, 70, 229, 0.1);
+        border-radius: 15px 15px 15px 0;
+        padding: 15px 20px;
+        max-width: 80%;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+    }
+    
+    .user-message {
+        background-color: rgba(31, 41, 55, 0.6);
+        border-radius: 15px 15px 0 15px;
+        padding: 15px 20px;
+        max-width: 80%;
+        margin-left: auto;
+        margin-bottom: 20px;
+    }
+    
+    .message-time {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 5px;
+    }
+    
+    .topic-badge {
+        background-color: rgba(79, 70, 229, 0.1);
+        color: var(--accent-color);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+    }
+    
+    .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+        margin-right: 10px;
+    }
+    
+    .avatar i {
+        color: white;
+    }
+    
+    .user-avatar {
+        background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+    }
+    
+    .action-item {
+        background-color: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(22, 163, 74, 0.2);
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-bottom: 10px;
+    }
+    
+    .action-item.completed {
+        background-color: rgba(22, 163, 74, 0.05);
+        border-color: rgba(22, 163, 74, 0.1);
+        opacity: 0.8;
+    }
+    
+    .action-item-checkbox {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 2px solid var(--success-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+    
+    .action-item.completed .action-item-checkbox {
+        background-color: var(--success-color);
+    }
+    
+    .typing-indicator {
+        display: inline-block;
+        position: relative;
+        width: 50px;
+        height: 20px;
+    }
+    
+    .typing-indicator span {
+        height: 6px;
+        width: 6px;
+        background-color: var(--text-secondary);
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 2px;
+        opacity: 0.7;
+        animation: typing 1s infinite;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-7px);
+        }
+        100% {
+            transform: translateY(0px);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <a href="{{ url_for('strategy_coach.coaching_sessions') }}" class="text-secondary me-3">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0">{{ session.title }}</h2>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="topic-badge me-3">
+                    <i class="fa fa-tag me-1"></i> {{ session.topic|replace('_', ' ')|title }}
+                </span>
+                <span class="text-secondary small">
+                    <i class="fa fa-calendar me-1"></i> Started {{ session.created_at|datetime }}
+                </span>
+            </div>
+        </div>
+        
+        <div>
+            <a href="{{ url_for('strategy_coach.coach_dashboard') }}" class="btn btn-outline-primary me-2">
+                <i class="fa fa-graduation-cap me-2"></i> Coach Dashboard
+            </a>
+            {% if session.status == "active" %}
+            <button id="completeSessionBtn" class="btn btn-success">
+                <i class="fa fa-check-circle me-2"></i> Complete Session
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Chat Area -->
+        <div class="col-md-8">
+            <div class="card chat-container">
+                <div class="chat-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar me-2">
+                                <i class="fa fa-robot"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">OG Strategy Coach</h6>
+                                <span class="text-secondary small">{{ session.status|title }}</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <span class="badge bg-{{ 'success' if session.status == 'completed' else 'primary' if session.status == 'active' else 'secondary' }}">
+                                {{ session.status|title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-body" id="chatBody">
+                    {% if session.conversation and session.conversation|length > 0 %}
+                        {% for message in session.conversation %}
+                            {% if message.role == 'coach' %}
+                                <div class="d-flex mb-4">
+                                    <div class="avatar me-2">
+                                        <i class="fa fa-robot"></i>
+                                    </div>
+                                    <div>
+                                        <div class="coach-message">
+                                            {{ message.content|safe|nl2br }}
+                                        </div>
+                                        <div class="message-time">
+                                            {{ message.timestamp|datetime }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="d-flex flex-row-reverse mb-4">
+                                    <div class="avatar user-avatar ms-2">
+                                        <i class="fa fa-user"></i>
+                                    </div>
+                                    <div>
+                                        <div class="user-message">
+                                            {{ message.content|safe|nl2br }}
+                                        </div>
+                                        <div class="message-time text-end">
+                                            {{ message.timestamp|datetime }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fa fa-comments fa-3x text-secondary mb-3"></i>
+                            <h5>No messages yet</h5>
+                            <p class="text-secondary">Start the conversation with your coach below</p>
+                        </div>
+                    {% endif %}
+                    
+                    <div id="typingIndicator" class="d-none">
+                        <div class="d-flex mb-4">
+                            <div class="avatar me-2">
+                                <i class="fa fa-robot"></i>
+                            </div>
+                            <div class="coach-message" style="padding: 10px 15px;">
+                                <div class="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-footer">
+                    <form id="messageForm" class="d-flex align-items-center">
+                        <input type="hidden" name="session_id" value="{{ session.id }}">
+                        <div class="flex-grow-1 me-3">
+                            <input type="text" class="form-control" name="message" id="messageInput" placeholder="Type your message..." {% if session.status != 'active' %}disabled{% endif %}>
+                        </div>
+                        <button type="submit" class="btn btn-primary" {% if session.status != 'active' %}disabled{% endif %}>
+                            <i class="fa fa-paper-plane me-1"></i> Send
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Action Items Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Action Items</h5>
+                </div>
+                <div class="card-body" id="actionItems">
+                    {% if session.action_items and session.action_items|length > 0 %}
+                        {% for item in session.action_items %}
+                            <div class="action-item d-flex align-items-start {{ 'completed' if item.completed else '' }}" data-index="{{ loop.index0 }}">
+                                <div class="action-item-checkbox mt-1" onclick="toggleActionItem({{ loop.index0 }})">
+                                    {% if item.completed %}
+                                        <i class="fa fa-check text-white"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <p class="mb-1">{{ item.description }}</p>
+                                    <small class="text-secondary">Added {{ item.created_at|datetime }}</small>
+                                    {% if item.completed %}
+                                        <small class="d-block text-success">Completed {{ item.completed_at|datetime }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fa fa-list-check fa-3x text-secondary mb-3"></i>
+                            <h6>No Action Items Yet</h6>
+                            <p class="text-secondary small">Action items will appear here as you chat with your coach</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Insights Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Insights</h5>
+                </div>
+                <div class="card-body" id="insights">
+                    {% if session.insights %}
+                        {{ session.insights|safe|nl2br }}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fa fa-lightbulb fa-3x text-secondary mb-3"></i>
+                            <h6>No Insights Yet</h6>
+                            <p class="text-secondary small">Insights will be generated as your coaching session progresses</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Scroll chat to bottom
+        const chatBody = document.getElementById('chatBody');
+        chatBody.scrollTop = chatBody.scrollHeight;
+        
+        // Handle message form submission
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Clear input
+            messageInput.value = '';
+            
+            // Add user message to UI
+            const userMessageHtml = `
+                <div class="d-flex flex-row-reverse mb-4">
+                    <div class="avatar user-avatar ms-2">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    <div>
+                        <div class="user-message">
+                            ${escapeHtml(message)}
+                        </div>
+                        <div class="message-time text-end">
+                            Just now
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert before typing indicator
+            chatBody.insertAdjacentHTML('beforeend', userMessageHtml);
+            chatBody.scrollTop = chatBody.scrollHeight;
+            
+            // Show typing indicator
+            typingIndicator.classList.remove('d-none');
+            chatBody.scrollTop = chatBody.scrollHeight;
+            
+            // Disable input while waiting for response
+            messageInput.disabled = true;
+            
+            // Send message to server
+            fetch("{{ url_for('strategy_coach.view_session', session_id=session.id) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: new URLSearchParams({
+                    'message': message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide typing indicator
+                typingIndicator.classList.add('d-none');
+                
+                // Add coach response to UI
+                if (data.conversation && data.conversation.length > 0) {
+                    const lastMessage = data.conversation[data.conversation.length - 1];
+                    
+                    if (lastMessage.role === 'coach') {
+                        const coachMessageHtml = `
+                            <div class="d-flex mb-4">
+                                <div class="avatar me-2">
+                                    <i class="fa fa-robot"></i>
+                                </div>
+                                <div>
+                                    <div class="coach-message">
+                                        ${escapeHtml(lastMessage.content).replace(/\n/g, '<br>')}
+                                    </div>
+                                    <div class="message-time">
+                                        Just now
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        chatBody.insertAdjacentHTML('beforeend', coachMessageHtml);
+                    }
+                }
+                
+                // Update action items
+                if (data.action_items && data.action_items.length > 0) {
+                    updateActionItems(data.action_items);
+                }
+                
+                // Update insights
+                if (data.insights) {
+                    document.getElementById('insights').innerHTML = data.insights.replace(/\n/g, '<br>');
+                }
+                
+                // Re-enable input
+                messageInput.disabled = false;
+                messageInput.focus();
+                
+                // Scroll chat to bottom
+                chatBody.scrollTop = chatBody.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Hide typing indicator
+                typingIndicator.classList.add('d-none');
+                // Re-enable input
+                messageInput.disabled = false;
+                
+                // Show error message
+                const errorHtml = `
+                    <div class="alert alert-danger mb-3">
+                        <i class="fa fa-exclamation-circle me-2"></i>
+                        Error sending message. Please try again.
+                    </div>
+                `;
+                chatBody.insertAdjacentHTML('beforeend', errorHtml);
+                chatBody.scrollTop = chatBody.scrollHeight;
+            });
+        });
+        
+        // Handle "Complete Session" button
+        const completeSessionBtn = document.getElementById('completeSessionBtn');
+        if (completeSessionBtn) {
+            completeSessionBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to complete this coaching session?')) {
+                    // TODO: Add API call to complete session
+                    window.location.href = "{{ url_for('strategy_coach.coaching_sessions') }}";
+                }
+            });
+        }
+    });
+    
+    // Helper to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Get CSRF token from meta tag
+    function getCsrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+    
+    // Update action items in the UI
+    function updateActionItems(actionItems) {
+        const actionItemsContainer = document.getElementById('actionItems');
+        
+        if (!actionItems || actionItems.length === 0) {
+            actionItemsContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fa fa-list-check fa-3x text-secondary mb-3"></i>
+                    <h6>No Action Items Yet</h6>
+                    <p class="text-secondary small">Action items will appear here as you chat with your coach</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        actionItems.forEach((item, index) => {
+            const completedClass = item.completed ? 'completed' : '';
+            const checkmark = item.completed ? '<i class="fa fa-check text-white"></i>' : '';
+            const completedText = item.completed ? 
+                `<small class="d-block text-success">Completed ${formatDate(item.completed_at)}</small>` : '';
+            
+            html += `
+                <div class="action-item d-flex align-items-start ${completedClass}" data-index="${index}">
+                    <div class="action-item-checkbox mt-1" onclick="toggleActionItem(${index})">
+                        ${checkmark}
+                    </div>
+                    <div>
+                        <p class="mb-1">${escapeHtml(item.description)}</p>
+                        <small class="text-secondary">Added ${formatDate(item.created_at)}</small>
+                        ${completedText}
+                    </div>
+                </div>
+            `;
+        });
+        
+        actionItemsContainer.innerHTML = html;
+    }
+    
+    // Toggle action item completion
+    function toggleActionItem(index) {
+        const actionItem = document.querySelector(`.action-item[data-index="${index}"]`);
+        
+        if (actionItem.classList.contains('completed')) {
+            // Already completed, do nothing
+            return;
+        }
+        
+        // Mark as completed
+        actionItem.classList.add('completed');
+        actionItem.querySelector('.action-item-checkbox').innerHTML = '<i class="fa fa-check text-white"></i>';
+        
+        // Add completed timestamp
+        const descriptionElement = actionItem.querySelector('div p').nextElementSibling;
+        descriptionElement.insertAdjacentHTML('afterend', 
+            `<small class="d-block text-success">Completed just now</small>`
+        );
+        
+        // TODO: Add API call to mark action item as completed
+    }
+    
+    // Format date for display
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        
+        const date = new Date(dateString);
+        return date.toLocaleString();
+    }
+</script>
+{% endblock %}

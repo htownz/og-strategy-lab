@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Run Backtest{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item active">Run Backtest</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Run Strategy Backtest</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('backtest.run_backtest') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="strategy_id" class="form-label">Select Strategy</label>
+                        <select name="strategy_id" id="strategy_id" class="form-select" required>
+                            <option value="">Select a strategy to test</option>
+                            {% for strategy in strategies %}
+                                <option value="{{ strategy.id }}">{{ strategy.name }}{% if strategy.active %} (Active){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="timeframe" class="form-label">Timeframe</label>
+                        <select name="timeframe" id="timeframe" class="form-select">
+                            {% for tf in timeframes %}
+                                <option value="{{ tf }}" {% if tf == '1D' %}selected{% endif %}>{{ tf }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ start_date }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ end_date }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="symbols" class="form-label">Symbols (comma-separated)</label>
+                    <input type="text" class="form-control" id="symbols" name="symbols" 
+                           value="{{ default_symbols }}" placeholder="AAPL,MSFT,AMZN,QQQ" required>
+                    <div class="form-text">Enter the symbols you want to test, separated by commas.</div>
+                </div>
+
+                <div class="mb-3 border-top pt-3">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="save_results" name="save_results" value="1" checked>
+                        <label class="form-check-label" for="save_results">
+                            Save results for future reference
+                        </label>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-play-fill me-1"></i> Run Backtest
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-4 alert alert-info">
+        <h5><i class="bi bi-info-circle me-2"></i>About Backtesting</h5>
+        <p>
+            Backtesting allows you to evaluate how your strategy would have performed historically.
+            The system will run your configured strategy against historical data for the selected
+            symbols and timeframe, then generate performance metrics such as win rate, profit factor,
+            and maximum drawdown.
+        </p>
+        <p class="mb-0">
+            <strong>Note:</strong> Depending on the amount of data and complexity of your strategy,
+            backtesting may take some time to complete.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Validate date range
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const startDate = new Date(document.getElementById('start_date').value);
+            const endDate = new Date(document.getElementById('end_date').value);
+            
+            if (startDate > endDate) {
+                e.preventDefault();
+                alert('Start date cannot be after end date.');
+            }
+        });
+        
+        // Validate symbols
+        document.getElementById('symbols').addEventListener('blur', function() {
+            const symbols = this.value.split(',').map(s => s.trim()).filter(s => s);
+            this.value = symbols.join(',');
+        });
+    });
+</script>
+{% endblock %}

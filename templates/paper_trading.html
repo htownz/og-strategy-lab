@@ -1,0 +1,1826 @@
+{% extends "layout.html" %}
+
+{% block title %}Paper Trading - OG Signal Bot{% endblock %}
+
+{% block head %}
+<link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<style>
+    .position-card {
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+    }
+    
+    .position-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .position-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .positive {
+        color: var(--bs-success);
+    }
+    
+    .negative {
+        color: var(--bs-danger);
+    }
+    
+    .trade-history-table {
+        font-size: 0.9rem;
+    }
+    
+    .trade-history-table th {
+        font-weight: 600;
+    }
+    
+    .trade-log-entry {
+        padding: 8px;
+        margin-bottom: 5px;
+        border-radius: 4px;
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    .stats-card {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        background-color: var(--bs-dark);
+    }
+    
+    .stats-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .badge-lg {
+        font-size: 0.9rem;
+        padding: 5px 10px;
+    }
+    
+    .chart-container {
+        height: 300px;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    #pnlChart, #equityCurveChart {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .settings-panel {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .form-switch .form-check-input {
+        width: 3em;
+    }
+    
+    .form-switch .form-check-input:checked {
+        background-color: var(--bs-success);
+    }
+    
+    /* Performance breakdown styles */
+    .performance-breakdown-card {
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .performance-metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .performance-metric-row:last-child {
+        border-bottom: none;
+    }
+    
+    .performance-metric-label {
+        font-weight: 500;
+    }
+    
+    .performance-metric-value {
+        font-weight: 600;
+    }
+    
+    .progress-bar-container {
+        height: 8px;
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Paper Trading Dashboard</h2>
+                <div>
+                    <button id="refreshBtn" class="btn btn-primary me-2">
+                        <i class="fa fa-refresh"></i> Refresh
+                    </button>
+                    <button id="settingsBtn" class="btn btn-secondary">
+                        <i class="fa fa-cog"></i> Settings
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Performance Charts -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">PnL by Trade</h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-secondary active" data-chart-period="all">All</button>
+                                <button type="button" class="btn btn-secondary" data-chart-period="week">Week</button>
+                                <button type="button" class="btn btn-secondary" data-chart-period="day">Day</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="pnlChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Equity Curve</h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-secondary active" data-equity-period="all">All</button>
+                                <button type="button" class="btn btn-secondary" data-equity-period="month">Month</button>
+                                <button type="button" class="btn btn-secondary" data-equity-period="week">Week</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="equityCurveChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Breakdown -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Performance Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="performance-breakdown-card">
+                                <h6 class="mb-3">By Option Type</h6>
+                                <div class="performance-metric-row">
+                                    <div class="performance-metric-label">Calls</div>
+                                    <div class="performance-metric-value" id="callWinRate">--</div>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="callWinRateBar" class="progress-bar bg-success" style="width: 0%"></div>
+                                </div>
+                                
+                                <div class="performance-metric-row mt-3">
+                                    <div class="performance-metric-label">Puts</div>
+                                    <div class="performance-metric-value" id="putWinRate">--</div>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="putWinRateBar" class="progress-bar bg-danger" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="performance-breakdown-card">
+                                <h6 class="mb-3">By Trading Hours</h6>
+                                <div class="performance-metric-row">
+                                    <div class="performance-metric-label">Morning (9:30-12:00)</div>
+                                    <div class="performance-metric-value" id="morningWinRate">--</div>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="morningWinRateBar" class="progress-bar bg-info" style="width: 0%"></div>
+                                </div>
+                                
+                                <div class="performance-metric-row mt-3">
+                                    <div class="performance-metric-label">Afternoon (12:00-16:00)</div>
+                                    <div class="performance-metric-value" id="afternoonWinRate">--</div>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="afternoonWinRateBar" class="progress-bar bg-warning" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <div class="text-muted mb-2">Portfolio Value</div>
+                        <div class="stats-value">${{ portfolio.portfolio_value }}</div>
+                        <div class="mt-2 {% if portfolio.total_pnl >= 0 %}positive{% else %}negative{% endif %}">
+                            <i class="fa {% if portfolio.total_pnl >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            {{ portfolio.total_pnl_percent }}% (${{ portfolio.total_pnl }})
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <div class="text-muted mb-2">Cash Available</div>
+                        <div class="stats-value">${{ portfolio.cash }}</div>
+                        <div class="mt-2 text-muted">
+                            <small>{{ portfolio.open_positions_count }} open positions</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <div class="text-muted mb-2">Win Rate</div>
+                        <div class="stats-value" id="winRate">--</div>
+                        <div class="mt-2 text-muted">
+                            <small id="winLossCount">-- / --</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <div class="text-muted mb-2">Avg. Gain/Loss</div>
+                        <div class="stats-value" id="avgPnL">--</div>
+                        <div class="mt-2 text-muted">
+                            <small id="maxValues">Max Gain: -- / Loss: --</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Open Positions -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Open Positions</h5>
+                    <button id="closeAllBtn" class="btn btn-sm btn-warning" {% if not portfolio.positions %}disabled{% endif %}>
+                        Close All Positions
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if portfolio.positions %}
+                        <div id="positionsContainer">
+                            {% for position in portfolio.positions %}
+                                <div class="position-card" data-position-key="{{ position.position_key }}">
+                                    <div class="position-header">
+                                        <div>
+                                            <h5>{{ position.ticker }} ${{ position.strike }} {{ position.option_type }}</h5>
+                                            <div>
+                                                <span class="badge bg-secondary">{{ position.expiration }}</span>
+                                                <small class="ms-2">{{ position.contracts }} contract(s) @ ${{ position.entry_price }}</small>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="{% if position.pnl >= 0 %}positive{% else %}negative{% endif %} fw-bold">
+                                                {{ position.pnl_percent }}% (${{ position.pnl }})
+                                            </div>
+                                            <div class="mt-2">
+                                                <button class="btn btn-sm btn-danger close-position-btn" data-position-key="{{ position.position_key }}">
+                                                    Close Position
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Current Price:</small>
+                                                    <div>${{ position.current_price }}/contract</div>
+                                                </div>
+                                                <div>
+                                                    <small class="text-muted">Current Value:</small>
+                                                    <div>${{ position.current_value }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Entry Date:</small>
+                                                    <div>{{ position.timestamp|format_timestamp }}</div>
+                                                </div>
+                                                <div>
+                                                    <small class="text-muted">Time in Trade:</small>
+                                                    <div id="timeInTrade-{{ position.position_key }}">Calculating...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5">
+                            <p>No open positions. Positions will appear here when you execute paper trades.</p>
+                            <button class="btn btn-primary" id="manualTradeBtn">Execute Manual Paper Trade</button>
+                        </div>
+                        
+                        <!-- Strategy Selection Panel -->
+                        <div class="mt-3 p-4 bg-dark rounded">
+                            <h5>Strategy Selection</h5>
+                            <p class="text-muted small">Select a strategy to apply when executing paper trades.</p>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <select id="strategySelect" class="form-select mb-2">
+                                        <option value="">Default Strategy</option>
+                                        <!-- Strategy options will be loaded dynamically -->
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <button id="loadStrategiesBtn" class="btn btn-secondary btn-sm w-100">
+                                        <i class="fa fa-refresh"></i> Load Strategies
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="useStrategyForTradesToggle">
+                                    <label class="form-check-label" for="useStrategyForTradesToggle">
+                                        Apply selected strategy to all paper trades
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Trade History -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Trade History</h5>
+                    <button id="exportBtn" class="btn btn-sm btn-secondary">
+                        <i class="fa fa-download"></i> Export to CSV
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover trade-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Ticker</th>
+                                    <th>Action</th>
+                                    <th>Contracts</th>
+                                    <th>Price</th>
+                                    <th>PnL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeHistoryBody">
+                                {% for trade in portfolio.trade_history %}
+                                    <tr>
+                                        <td>{{ trade.timestamp|format_timestamp }}</td>
+                                        <td>
+                                            {% if trade.ticker %}
+                                                {{ trade.ticker }} 
+                                                {% if trade.strike and trade.option_type %}
+                                                    ${{ trade.strike }} {{ trade.option_type }}
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if trade.action == 'BUY' %}
+                                                <span class="badge bg-primary">BUY</span>
+                                            {% elif trade.action == 'CLOSE' %}
+                                                <span class="badge bg-secondary">CLOSE</span>
+                                            {% else %}
+                                                {{ trade.action }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ trade.contracts }}</td>
+                                        <td>
+                                            {% if trade.price %}
+                                                ${{ trade.price }}
+                                            {% elif trade.exit_price %}
+                                                ${{ trade.exit_price }}
+                                            {% elif trade.entry_price %}
+                                                ${{ trade.entry_price }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if trade.pnl %}
+                                                <span class="{% if trade.pnl >= 0 %}positive{% else %}negative{% endif %}">
+                                                    ${{ trade.pnl }} ({{ trade.pnl_percent }}%)
+                                                </span>
+                                            {% else %}
+                                                --
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Auto-Trading Settings Panel -->
+            <div class="settings-panel mb-4">
+                <h5 class="mb-3">Auto Trading Settings</h5>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="autoTradingSwitch">
+                    <label class="form-check-label" for="autoTradingSwitch">Auto-Trade OG Strategy Matches</label>
+                </div>
+                <div id="autoTradingOptions" style="display: none;">
+                    <div class="mb-3">
+                        <label for="positionSizeSelect" class="form-label">Position Size per Trade</label>
+                        <select class="form-select" id="positionSizeSelect">
+                            <option value="500">$500</option>
+                            <option value="1000" selected>$1,000</option>
+                            <option value="2000">$2,000</option>
+                            <option value="5000">$5,000</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="autoCloseSelect" class="form-label">Auto-Close After</label>
+                        <select class="form-select" id="autoCloseSelect">
+                            <option value="0">Disabled</option>
+                            <option value="20" selected>20 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="240">4 hours</option>
+                            <option value="1440">1 day</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="minConfidenceSelect" class="form-label">Minimum Confidence Score</label>
+                        <select class="form-select" id="minConfidenceSelect">
+                            <option value="1">1 (Take All Signals)</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                            <option value="4">4 (High Confidence Only)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="useStopLossCheck" checked>
+                            <label class="form-check-label" for="useStopLossCheck">
+                                Use Stop Loss (25% max loss)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4 mt-4 border-top pt-3">
+                        <h6 class="mb-3">Strategy Settings</h6>
+                        
+                        <div class="mb-3">
+                            <label for="strategySelect" class="form-label">Select Trading Strategy</label>
+                            <div class="input-group">
+                                <select class="form-select" id="strategySelect">
+                                    <option value="">Default Strategy</option>
+                                    <!-- Strategies will be loaded here -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" id="loadStrategiesBtn">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                            </div>
+                            <small class="text-muted">Select a strategy profile to apply to paper trades</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="useStrategyForTradesToggle">
+                                <label class="form-check-label" for="useStrategyForTradesToggle">
+                                    Apply strategy to new trades
+                                </label>
+                            </div>
+                            <small class="text-muted">When enabled, the selected strategy will be applied to all new paper trades</small>
+                        </div>
+                    </div>
+                    <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+            
+            <!-- Recent OG Matches Panel -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent OG Matches</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="recentMatchesList" class="p-3" style="max-height: 300px; overflow-y: auto;">
+                        <div class="text-center py-4">
+                            <p>No recent OG matches found.</p>
+                            <p class="text-muted small">Start the OG Scanner to detect matches</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/scanner" class="btn btn-sm btn-primary">Go to Scanner</a>
+                </div>
+            </div>
+            
+            <!-- System Logs Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Paper Trading Logs</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="paperTradingLogs" class="p-3" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Logs will be populated via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Paper Trade Modal -->
+<div class="modal fade" id="manualTradeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Execute Manual Paper Trade</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="manualTradeForm">
+                    <div class="mb-3">
+                        <label for="tickerInput" class="form-label">Ticker</label>
+                        <input type="text" class="form-control" id="tickerInput" placeholder="e.g. SPY" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="strikeInput" class="form-label">Strike Price</label>
+                            <input type="number" class="form-control" id="strikeInput" placeholder="e.g. 450" step="0.01" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="optionTypeSelect" class="form-label">Option Type</label>
+                            <select class="form-select" id="optionTypeSelect" required>
+                                <option value="CALL">CALL</option>
+                                <option value="PUT">PUT</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="expirationInput" class="form-label">Expiration Date</label>
+                            <input type="date" class="form-control" id="expirationInput" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="currentPriceInput" class="form-label">Current Stock Price</label>
+                            <input type="number" class="form-control" id="currentPriceInput" placeholder="e.g. 445.67" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confidenceSelect" class="form-label">Confidence Score (1-5)</label>
+                        <select class="form-select" id="confidenceSelect">
+                            <option value="1">1 (Low)</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3 (Medium)</option>
+                            <option value="4">4</option>
+                            <option value="5">5 (High)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="strategySelectModal" class="form-label">Trading Strategy</label>
+                        <select class="form-select" id="strategySelectModal">
+                            <option value="">Default Strategy</option>
+                            <!-- Strategy options will be loaded dynamically -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="executeManualTradeBtn">Execute Trade</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Close Position Modal -->
+<div class="modal fade" id="closePositionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Close Position</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to close this position?</p>
+                <div class="position-info mb-3"></div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="useCustomPriceCheck">
+                    <label class="form-check-label" for="useCustomPriceCheck">
+                        Use custom exit price
+                    </label>
+                </div>
+                <div id="customPriceInput" style="display: none;">
+                    <label for="exitPriceInput" class="form-label">Exit Price</label>
+                    <input type="number" class="form-control" id="exitPriceInput" placeholder="e.g. 3.50" step="0.01">
+                </div>
+                <input type="hidden" id="positionKeyInput">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmCloseBtn">Close Position</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Socket.IO connection for real-time updates
+        const socket = io();
+        
+        // Initialize variables
+        let portfolio = {{ portfolio|tojson }};
+        let recentMatches = [];
+        
+        // Initialize charts
+        initCharts();
+        
+        // Initialize performance breakdown metrics
+        updatePerformanceMetrics();
+        
+        // Update performance breakdown displays
+        updatePerformanceBreakdown();
+        
+        // Calculate performance metrics
+        updatePerformanceMetrics();
+        
+        // Calculate time in trade for each position
+        updateTimeInTrade();
+        setInterval(updateTimeInTrade, 60000); // Update every minute
+        
+        // Setup UI event handlers
+        setupEventHandlers();
+        
+        // Check auto-trading setting and update UI
+        const autoTradingEnabled = (localStorage.getItem('autoTradingEnabled') === 'true');
+        document.getElementById('autoTradingSwitch').checked = autoTradingEnabled;
+        if (autoTradingEnabled) {
+            document.getElementById('autoTradingOptions').style.display = 'block';
+        }
+        
+        // Listen for OG strategy matches
+        socket.on('trade_alert', function(data) {
+            // Add to recent matches
+            recentMatches.unshift(data);
+            if (recentMatches.length > 10) {
+                recentMatches.pop();
+            }
+            
+            // Update recent matches display
+            updateRecentMatchesDisplay();
+            
+            // Check if auto-trading is enabled
+            if (autoTradingEnabled) {
+                // Get minimum confidence setting
+                const minConfidence = parseInt(document.getElementById('minConfidenceSelect').value);
+                
+                // Check if match meets minimum confidence
+                if (data.confidence >= minConfidence) {
+                    // Add a log
+                    addLog('Auto-trading enabled, processing new OG match: ' + data.ticker);
+                    
+                    // Execute paper trade
+                    executePaperTrade(data);
+                } else {
+                    addLog(`Match confidence (${data.confidence}) below minimum threshold (${minConfidence})`);
+                }
+            }
+        });
+        
+        // Initial updates
+        updateRecentMatchesDisplay();
+        loadPaperTradingLogs();
+        
+        // Refresh data every 30 seconds
+        setInterval(refreshData, 30000);
+        
+        // Function to initialize charts
+        function initCharts() {
+            // PnL by Trade Chart
+            const pnlCtx = document.getElementById('pnlChart').getContext('2d');
+            window.pnlChart = new Chart(pnlCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'PnL ($)',
+                        data: [],
+                        backgroundColor: [],
+                        borderColor: [],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Equity Curve Chart
+            const equityCtx = document.getElementById('equityCurveChart').getContext('2d');
+            window.equityCurveChart = new Chart(equityCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Portfolio Value ($)',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+            
+            // Update charts with initial data
+            updateCharts();
+        }
+        
+        // Function to update charts with latest data
+        function updateCharts() {
+            // Get the active periods
+            const activePnLPeriod = document.querySelector('[data-chart-period].active').getAttribute('data-chart-period');
+            const activeEquityPeriod = document.querySelector('[data-equity-period].active').getAttribute('data-equity-period');
+            
+            // Update the charts
+            updatePnLChart(activePnLPeriod);
+            updateEquityCurveChart(activeEquityPeriod);
+        }
+        
+        // Function to update PnL chart based on period
+        function updatePnLChart(period) {
+            // Get closed trades with PnL
+            let closedTrades = portfolio.trade_history.filter(trade => trade.action === 'CLOSE');
+            
+            // Filter based on period
+            if (period === 'day') {
+                const oneDayAgo = new Date();
+                oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+                closedTrades = closedTrades.filter(trade => new Date(trade.timestamp) >= oneDayAgo);
+            } else if (period === 'week') {
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                closedTrades = closedTrades.filter(trade => new Date(trade.timestamp) >= oneWeekAgo);
+            }
+            
+            // Update PnL Chart
+            if (closedTrades.length > 0) {
+                const labels = closedTrades.map((trade, index) => `Trade ${index + 1}`);
+                const pnlData = closedTrades.map(trade => trade.pnl);
+                const colors = pnlData.map(pnl => pnl >= 0 ? 'rgba(75, 192, 192, 0.7)' : 'rgba(255, 99, 132, 0.7)');
+                const borderColors = pnlData.map(pnl => pnl >= 0 ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)');
+                
+                window.pnlChart.data.labels = labels;
+                window.pnlChart.data.datasets[0].data = pnlData;
+                window.pnlChart.data.datasets[0].backgroundColor = colors;
+                window.pnlChart.data.datasets[0].borderColor = borderColors;
+                window.pnlChart.update();
+            } else {
+                // Clear chart if no trades
+                window.pnlChart.data.labels = [];
+                window.pnlChart.data.datasets[0].data = [];
+                window.pnlChart.update();
+            }
+        }
+        
+        // Function to update Equity Curve chart based on period
+        function updateEquityCurveChart(period) {
+            // Get closed trades
+            let closedTrades = portfolio.trade_history.filter(trade => trade.action === 'CLOSE');
+            
+            // Filter based on period
+            let startDate = new Date(0); // beginning of time
+            if (period === 'week') {
+                startDate = new Date();
+                startDate.setDate(startDate.getDate() - 7);
+            } else if (period === 'month') {
+                startDate = new Date();
+                startDate.setMonth(startDate.getMonth() - 1);
+            }
+            
+            closedTrades = closedTrades.filter(trade => new Date(trade.timestamp) >= startDate);
+            
+            // In a real implementation, you would calculate the equity value after each trade
+            // This is a simplified version
+            const initialValue = 10000; // Starting capital
+            let equityValue = initialValue;
+            const equityPoints = [equityValue];
+            const timeLabels = ['Start'];
+            
+            // Sort trades by timestamp
+            closedTrades.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            closedTrades.forEach((trade, index) => {
+                equityValue += trade.pnl;
+                equityPoints.push(equityValue);
+                
+                // Format date for label
+                const tradeDate = new Date(trade.timestamp);
+                const dateLabel = tradeDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                timeLabels.push(dateLabel);
+            });
+            
+            // Add current portfolio value if there are trades
+            if (closedTrades.length > 0) {
+                equityPoints.push(portfolio.portfolio_value);
+                timeLabels.push('Current');
+            }
+            
+            window.equityCurveChart.data.labels = timeLabels;
+            window.equityCurveChart.data.datasets[0].data = equityPoints;
+            window.equityCurveChart.update();
+        }
+        
+        // Function to update performance metrics
+        function updatePerformanceMetrics() {
+            // Get closed trades
+            const closedTrades = portfolio.trade_history.filter(trade => trade.action === 'CLOSE');
+            
+            if (closedTrades.length > 0) {
+                // Calculate win/loss
+                const winningTrades = closedTrades.filter(trade => trade.pnl > 0);
+                const losingTrades = closedTrades.filter(trade => trade.pnl <= 0);
+                
+                const winRate = (winningTrades.length / closedTrades.length) * 100;
+                
+                // Calculate average gain/loss
+                const totalPnL = closedTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+                const avgPnL = totalPnL / closedTrades.length;
+                
+                // Calculate max gain/loss
+                const pnlValues = closedTrades.map(trade => trade.pnl || 0);
+                const maxGain = Math.max(...pnlValues);
+                const maxLoss = Math.min(...pnlValues);
+                
+                // Update the UI
+                document.getElementById('winRate').textContent = winRate.toFixed(1) + '%';
+                document.getElementById('winLossCount').textContent = 
+                    `${winningTrades.length} / ${losingTrades.length}`;
+                
+                document.getElementById('avgPnL').textContent = '$' + avgPnL.toFixed(2);
+                document.getElementById('maxValues').textContent = 
+                    `Max Gain: $${maxGain.toFixed(2)} / Loss: $${maxLoss.toFixed(2)}`;
+            }
+        }
+        
+        // Function to update performance breakdown
+        function updatePerformanceBreakdown() {
+            // Get closed trades
+            const closedTrades = portfolio.trade_history.filter(trade => trade.action === 'CLOSE');
+            
+            if (closedTrades.length === 0) {
+                return; // No trades to analyze
+            }
+            
+            // Breakdown by option type
+            const callTrades = closedTrades.filter(trade => trade.option_type === 'call');
+            const putTrades = closedTrades.filter(trade => trade.option_type === 'put');
+            
+            // Calculate win rates by option type
+            let callWinRate = 0;
+            if (callTrades.length > 0) {
+                const winningCalls = callTrades.filter(trade => trade.pnl > 0);
+                callWinRate = (winningCalls.length / callTrades.length) * 100;
+            }
+            
+            let putWinRate = 0;
+            if (putTrades.length > 0) {
+                const winningPuts = putTrades.filter(trade => trade.pnl > 0);
+                putWinRate = (winningPuts.length / putTrades.length) * 100;
+            }
+            
+            // Update option type breakdown UI
+            document.getElementById('callWinRate').textContent = callWinRate.toFixed(1) + '% (' + callTrades.length + ' trades)';
+            document.getElementById('callWinRateBar').style.width = callWinRate + '%';
+            
+            document.getElementById('putWinRate').textContent = putWinRate.toFixed(1) + '% (' + putTrades.length + ' trades)';
+            document.getElementById('putWinRateBar').style.width = putWinRate + '%';
+            
+            // Breakdown by trading hours
+            // Note: This is a simplified version assuming timestamps are in the local timezone
+            // In a real implementation, you would need to handle timezone conversions
+            const morningTrades = closedTrades.filter(trade => {
+                const tradeDate = new Date(trade.timestamp);
+                const hours = tradeDate.getHours();
+                return hours >= 9 && hours < 12; // 9:30 AM - 12:00 PM
+            });
+            
+            const afternoonTrades = closedTrades.filter(trade => {
+                const tradeDate = new Date(trade.timestamp);
+                const hours = tradeDate.getHours();
+                return hours >= 12 && hours < 16; // 12:00 PM - 4:00 PM
+            });
+            
+            // Calculate win rates by trading hours
+            let morningWinRate = 0;
+            if (morningTrades.length > 0) {
+                const winningMorning = morningTrades.filter(trade => trade.pnl > 0);
+                morningWinRate = (winningMorning.length / morningTrades.length) * 100;
+            }
+            
+            let afternoonWinRate = 0;
+            if (afternoonTrades.length > 0) {
+                const winningAfternoon = afternoonTrades.filter(trade => trade.pnl > 0);
+                afternoonWinRate = (winningAfternoon.length / afternoonTrades.length) * 100;
+            }
+            
+            // Update trading hours breakdown UI
+            document.getElementById('morningWinRate').textContent = morningWinRate.toFixed(1) + '% (' + morningTrades.length + ' trades)';
+            document.getElementById('morningWinRateBar').style.width = morningWinRate + '%';
+            
+            document.getElementById('afternoonWinRate').textContent = afternoonWinRate.toFixed(1) + '% (' + afternoonTrades.length + ' trades)';
+            document.getElementById('afternoonWinRateBar').style.width = afternoonWinRate + '%';
+        }
+        
+        // Function to calculate and update time in trade for each position
+        function updateTimeInTrade() {
+            portfolio.positions.forEach(position => {
+                const positionKey = position.position_key;
+                const entryTime = new Date(position.timestamp);
+                const currentTime = new Date();
+                const timeInMs = currentTime - entryTime;
+                
+                // Convert to hours/minutes/days
+                const seconds = Math.floor(timeInMs / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+                
+                let timeString = '';
+                if (days > 0) {
+                    timeString = `${days}d ${hours % 24}h`;
+                } else if (hours > 0) {
+                    timeString = `${hours}h ${minutes % 60}m`;
+                } else {
+                    timeString = `${minutes}m`;
+                }
+                
+                const element = document.getElementById(`timeInTrade-${positionKey}`);
+                if (element) {
+                    element.textContent = timeString;
+                }
+            });
+        }
+        
+        // Function to setup UI event handlers
+        function setupEventHandlers() {
+            // Load available strategies
+            loadStrategies();
+            
+            // Strategy selection handling
+            document.getElementById('loadStrategiesBtn').addEventListener('click', function() {
+                loadStrategies();
+            });
+            
+            // Apply strategy selection to modal dropdown
+            document.getElementById('strategySelect').addEventListener('change', function(e) {
+                // Sync strategy selection with modal
+                const strategyId = e.target.value;
+                const strategySelectModal = document.getElementById('strategySelectModal');
+                
+                // Set the same selection in the modal if available
+                if (strategySelectModal) {
+                    // Find the option with matching value
+                    for (let i = 0; i < strategySelectModal.options.length; i++) {
+                        if (strategySelectModal.options[i].value === strategyId) {
+                            strategySelectModal.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('selectedStrategyId', strategyId);
+                
+                // Log for user
+                const strategyText = e.target.options[e.target.selectedIndex].text;
+                addLog(`Selected strategy: ${strategyText || 'Default Strategy'}`);
+            });
+            
+            // Apply strategy toggle
+            document.getElementById('useStrategyForTradesToggle').addEventListener('change', function(e) {
+                const useStrategy = e.target.checked;
+                localStorage.setItem('useStrategyForTrades', useStrategy);
+                addLog(`Strategy application ${useStrategy ? 'enabled' : 'disabled'} for paper trades`);
+            });
+            
+            // Auto trading switch
+            document.getElementById('autoTradingSwitch').addEventListener('change', function(e) {
+                const isEnabled = e.target.checked;
+                document.getElementById('autoTradingOptions').style.display = isEnabled ? 'block' : 'none';
+                localStorage.setItem('autoTradingEnabled', isEnabled);
+                
+                // Update backend setting
+                fetch('/api/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        key: 'paper_auto_trading',
+                        value: isEnabled.toString()
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLog(`Auto-trading ${isEnabled ? 'enabled' : 'disabled'}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating setting:', error);
+                });
+            });
+            
+            // Save settings button
+            document.getElementById('saveSettingsBtn').addEventListener('click', function() {
+                const positionSize = document.getElementById('positionSizeSelect').value;
+                const autoClose = document.getElementById('autoCloseSelect').value;
+                const minConfidence = document.getElementById('minConfidenceSelect').value;
+                const useStopLoss = document.getElementById('useStopLossCheck').checked;
+                
+                // Save settings to localStorage for now
+                localStorage.setItem('positionSize', positionSize);
+                localStorage.setItem('autoClose', autoClose);
+                localStorage.setItem('minConfidence', minConfidence);
+                localStorage.setItem('useStopLoss', useStopLoss);
+                
+                // You would typically save these to the server as well
+                
+                alert('Settings saved successfully');
+                addLog('Paper trading settings updated');
+            });
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', refreshData);
+            
+            // Settings button
+            document.getElementById('settingsBtn').addEventListener('click', function() {
+                document.getElementById('autoTradingOptions').style.display = 
+                    document.getElementById('autoTradingOptions').style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // Manual trade button
+            document.getElementById('manualTradeBtn').addEventListener('click', function() {
+                // Set default expiration date to 2 weeks from now
+                const twoWeeksFromNow = new Date();
+                twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+                document.getElementById('expirationInput').valueAsDate = twoWeeksFromNow;
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('manualTradeModal'));
+                modal.show();
+            });
+            
+            // Execute manual trade button
+            document.getElementById('executeManualTradeBtn').addEventListener('click', function() {
+                // Get form values
+                const ticker = document.getElementById('tickerInput').value.toUpperCase();
+                const strike = parseFloat(document.getElementById('strikeInput').value);
+                const optionType = document.getElementById('optionTypeSelect').value;
+                const expiration = document.getElementById('expirationInput').value;
+                const currentPrice = parseFloat(document.getElementById('currentPriceInput').value);
+                const confidence = parseInt(document.getElementById('confidenceSelect').value);
+                
+                // Validate form
+                if (!ticker || isNaN(strike) || isNaN(currentPrice) || !expiration) {
+                    alert('Please fill out all required fields');
+                    return;
+                }
+                
+                // Create trade data
+                const tradeData = {
+                    ticker: ticker,
+                    strike: strike,
+                    option_type: optionType,
+                    expiration: expiration,
+                    current_price: currentPrice,
+                    confidence: confidence,
+                    timestamp: new Date().toISOString(),
+                    setup: 'Manual Entry'
+                };
+                
+                // Execute the paper trade
+                executePaperTrade(tradeData);
+                
+                // Close the modal
+                bootstrap.Modal.getInstance(document.getElementById('manualTradeModal')).hide();
+            });
+            
+            // Close position buttons
+            document.querySelectorAll('.close-position-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const positionKey = this.getAttribute('data-position-key');
+                    const position = portfolio.positions.find(p => p.position_key === positionKey);
+                    
+                    if (position) {
+                        // Update the modal with position details
+                        document.querySelector('.position-info').innerHTML = `
+                            <div class="alert alert-secondary">
+                                <strong>${position.ticker} $${position.strike} ${position.option_type}</strong><br>
+                                ${position.contracts} contract(s) @ $${position.entry_price}<br>
+                                Current P&L: <span class="${position.pnl >= 0 ? 'text-success' : 'text-danger'}">
+                                    ${position.pnl_percent}% ($${position.pnl})
+                                </span>
+                            </div>
+                        `;
+                        
+                        // Set position key in hidden input
+                        document.getElementById('positionKeyInput').value = positionKey;
+                        
+                        // Reset custom price checkbox
+                        document.getElementById('useCustomPriceCheck').checked = false;
+                        document.getElementById('customPriceInput').style.display = 'none';
+                        
+                        // Show the modal
+                        const modal = new bootstrap.Modal(document.getElementById('closePositionModal'));
+                        modal.show();
+                    }
+                });
+            });
+            
+            // Custom price checkbox
+            document.getElementById('useCustomPriceCheck').addEventListener('change', function() {
+                document.getElementById('customPriceInput').style.display = 
+                    this.checked ? 'block' : 'none';
+            });
+            
+            // Confirm close button
+            document.getElementById('confirmCloseBtn').addEventListener('click', function() {
+                const positionKey = document.getElementById('positionKeyInput').value;
+                let exitPrice = null;
+                
+                if (document.getElementById('useCustomPriceCheck').checked) {
+                    exitPrice = parseFloat(document.getElementById('exitPriceInput').value);
+                    if (isNaN(exitPrice)) {
+                        alert('Please enter a valid exit price');
+                        return;
+                    }
+                }
+                
+                // Close the position
+                closePosition(positionKey, exitPrice);
+                
+                // Close the modal
+                bootstrap.Modal.getInstance(document.getElementById('closePositionModal')).hide();
+            });
+            
+            // Close all positions button
+            document.getElementById('closeAllBtn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to close all open positions?')) {
+                    closeAllPositions();
+                }
+            });
+            
+            // Export button
+            document.getElementById('exportBtn').addEventListener('click', exportTradeHistory);
+            
+            // Chart period buttons for PnL Chart
+            document.querySelectorAll('[data-chart-period]').forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('[data-chart-period]').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Update chart based on period
+                    const period = this.getAttribute('data-chart-period');
+                    updatePnLChart(period);
+                });
+            });
+            
+            // Chart period buttons for Equity Curve Chart
+            document.querySelectorAll('[data-equity-period]').forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('[data-equity-period]').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Update chart based on period
+                    const period = this.getAttribute('data-equity-period');
+                    updateEquityCurveChart(period);
+                });
+            });
+        }
+        
+        // Function to refresh data
+        function refreshData() {
+            fetch('/api/paper-trading/status')
+                .then(response => response.json())
+                .then(data => {
+                    portfolio = data;
+                    updateUI();
+                })
+                .catch(error => {
+                    console.error('Error refreshing data:', error);
+                });
+                
+            // Also update positions
+            fetch('/api/paper-trading/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Error updating positions:', error);
+            });
+        }
+        
+        // Function to update the UI with latest data
+        function updateUI() {
+            // Update performance stats
+            document.querySelector('.stats-value:nth-child(2)').textContent = '$' + portfolio.portfolio_value;
+            const pnlElement = document.querySelector('.stats-value:nth-child(2) + div');
+            pnlElement.className = portfolio.total_pnl >= 0 ? 'mt-2 positive' : 'mt-2 negative';
+            pnlElement.innerHTML = `
+                <i class="fa ${portfolio.total_pnl >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
+                ${portfolio.total_pnl_percent}% ($${portfolio.total_pnl})
+            `;
+            
+            document.querySelector('.stats-card:nth-child(2) .stats-value').textContent = '$' + portfolio.cash;
+            document.querySelector('.stats-card:nth-child(2) small').textContent = 
+                `${portfolio.open_positions_count} open positions`;
+            
+            // Update positions container
+            const positionsContainer = document.getElementById('positionsContainer');
+            positionsContainer.innerHTML = '';
+            
+            if (portfolio.positions.length > 0) {
+                portfolio.positions.forEach(position => {
+                    const positionEl = document.createElement('div');
+                    positionEl.className = 'position-card';
+                    positionEl.dataset.positionKey = position.position_key;
+                    
+                    positionEl.innerHTML = `
+                        <div class="position-header">
+                            <div>
+                                <h5>${position.ticker} $${position.strike} ${position.option_type}</h5>
+                                <div>
+                                    <span class="badge bg-secondary">${position.expiration}</span>
+                                    <small class="ms-2">${position.contracts} contract(s) @ $${position.entry_price}</small>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="${position.pnl >= 0 ? 'positive' : 'negative'} fw-bold">
+                                    ${position.pnl_percent}% ($${position.pnl})
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-danger close-position-btn" data-position-key="${position.position_key}">
+                                        Close Position
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Current Price:</small>
+                                        <div>$${position.current_price}/contract</div>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">Current Value:</small>
+                                        <div>$${position.current_value}</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Entry Date:</small>
+                                        <div>${formatTimestamp(position.timestamp)}</div>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">Time in Trade:</small>
+                                        <div id="timeInTrade-${position.position_key}">Calculating...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    positionsContainer.appendChild(positionEl);
+                });
+                
+                // Add event listeners to new close buttons
+                document.querySelectorAll('.close-position-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const positionKey = this.getAttribute('data-position-key');
+                        const position = portfolio.positions.find(p => p.position_key === positionKey);
+                        
+                        if (position) {
+                            // Update the modal with position details
+                            document.querySelector('.position-info').innerHTML = `
+                                <div class="alert alert-secondary">
+                                    <strong>${position.ticker} $${position.strike} ${position.option_type}</strong><br>
+                                    ${position.contracts} contract(s) @ $${position.entry_price}<br>
+                                    Current P&L: <span class="${position.pnl >= 0 ? 'text-success' : 'text-danger'}">
+                                        ${position.pnl_percent}% ($${position.pnl})
+                                    </span>
+                                </div>
+                            `;
+                            
+                            // Set position key in hidden input
+                            document.getElementById('positionKeyInput').value = positionKey;
+                            
+                            // Reset custom price checkbox
+                            document.getElementById('useCustomPriceCheck').checked = false;
+                            document.getElementById('customPriceInput').style.display = 'none';
+                            
+                            // Show the modal
+                            const modal = new bootstrap.Modal(document.getElementById('closePositionModal'));
+                            modal.show();
+                        }
+                    });
+                });
+            } else {
+                positionsContainer.innerHTML = `
+                    <div class="text-center p-5">
+                        <p>No open positions. Positions will appear here when you execute paper trades.</p>
+                        <button class="btn btn-primary" id="manualTradeBtn">Execute Manual Paper Trade</button>
+                    </div>
+                `;
+                
+                // Add event listener to the manual trade button
+                document.getElementById('manualTradeBtn').addEventListener('click', function() {
+                    // Set default expiration date to 2 weeks from now
+                    const twoWeeksFromNow = new Date();
+                    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+                    document.getElementById('expirationInput').valueAsDate = twoWeeksFromNow;
+                    
+                    // Show the modal
+                    const modal = new bootstrap.Modal(document.getElementById('manualTradeModal'));
+                    modal.show();
+                });
+            }
+            
+            // Update close all button state
+            document.getElementById('closeAllBtn').disabled = portfolio.positions.length === 0;
+            
+            // Update trade history
+            const tradeHistoryBody = document.getElementById('tradeHistoryBody');
+            tradeHistoryBody.innerHTML = '';
+            
+            portfolio.trade_history.forEach(trade => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${formatTimestamp(trade.timestamp)}</td>
+                    <td>
+                        ${trade.ticker} 
+                        ${trade.strike && trade.option_type ? `$${trade.strike} ${trade.option_type}` : ''}
+                    </td>
+                    <td>
+                        ${trade.action === 'BUY' ? 
+                            '<span class="badge bg-primary">BUY</span>' : 
+                            (trade.action === 'CLOSE' ? 
+                                '<span class="badge bg-secondary">CLOSE</span>' : 
+                                trade.action)}
+                    </td>
+                    <td>${trade.contracts}</td>
+                    <td>
+                        ${trade.price ? 
+                            '$' + trade.price : 
+                            (trade.exit_price ? 
+                                '$' + trade.exit_price : 
+                                (trade.entry_price ? 
+                                    '$' + trade.entry_price : 
+                                    '--'))}
+                    </td>
+                    <td>
+                        ${trade.pnl ? 
+                            `<span class="${trade.pnl >= 0 ? 'positive' : 'negative'}">
+                                $${trade.pnl} (${trade.pnl_percent}%)
+                            </span>` : 
+                            '--'}
+                    </td>
+                `;
+                
+                tradeHistoryBody.appendChild(row);
+            });
+            
+            // Update performance metrics
+            updatePerformanceMetrics();
+            
+            // Update charts
+            updateCharts();
+            
+            // Update time in trade
+            updateTimeInTrade();
+        }
+        
+        // Function to export trade history to CSV
+        function exportTradeHistory() {
+            window.location.href = '/api/paper-trading/export';
+        }
+        
+        // Function to update recent matches display
+        function updateRecentMatchesDisplay() {
+            const container = document.getElementById('recentMatchesList');
+            
+            if (recentMatches.length > 0) {
+                container.innerHTML = '';
+                
+                recentMatches.forEach(match => {
+                    const matchEl = document.createElement('div');
+                    matchEl.className = 'match-alert border-bottom p-2 mb-2';
+                    
+                    // Format date
+                    const date = new Date(match.timestamp);
+                    const formattedDate = formatTimestamp(match.timestamp);
+                    
+                    matchEl.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">${match.ticker} $${match.strike} ${match.option_type}</h6>
+                                <small class="text-muted">${formattedDate}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-success">Score: ${match.confidence}</span>
+                                <button class="btn btn-sm btn-primary trade-match-btn" data-match-id="${match.id || ''}">
+                                    Trade
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(matchEl);
+                });
+                
+                // Add event listeners to trade buttons
+                document.querySelectorAll('.trade-match-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const matchId = this.getAttribute('data-match-id');
+                        const match = recentMatches.find(m => m.id === matchId);
+                        
+                        if (match) {
+                            executePaperTrade(match);
+                        }
+                    });
+                });
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-4">
+                        <p>No recent OG matches found.</p>
+                        <p class="text-muted small">Start the OG Scanner to detect matches</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Function to load available strategies
+        function loadStrategies() {
+            fetch('/api/strategies')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.strategies && data.strategies.length > 0) {
+                        // Get both strategy selects
+                        const strategySelect = document.getElementById('strategySelect');
+                        const strategySelectModal = document.getElementById('strategySelectModal');
+                        
+                        // Clear existing options except the default one
+                        while (strategySelect.options.length > 1) {
+                            strategySelect.remove(1);
+                        }
+                        
+                        while (strategySelectModal.options.length > 1) {
+                            strategySelectModal.remove(1);
+                        }
+                        
+                        // Add strategies to both selects
+                        data.strategies.forEach(strategy => {
+                            // Add to main select
+                            const option = document.createElement('option');
+                            option.value = strategy.id;
+                            option.textContent = strategy.name;
+                            strategySelect.appendChild(option);
+                            
+                            // Add to modal select
+                            const optionModal = document.createElement('option');
+                            optionModal.value = strategy.id;
+                            optionModal.textContent = strategy.name;
+                            strategySelectModal.appendChild(optionModal);
+                        });
+                        
+                        addLog(`Loaded ${data.strategies.length} strategies`);
+                        
+                        // Set previously selected strategy if any
+                        const savedStrategyId = localStorage.getItem('selectedStrategyId');
+                        if (savedStrategyId) {
+                            // Try to find and select the saved strategy
+                            for (let i = 0; i < strategySelect.options.length; i++) {
+                                if (strategySelect.options[i].value === savedStrategyId) {
+                                    strategySelect.selectedIndex = i;
+                                    strategySelectModal.selectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Set the strategy toggle state
+                        const useStrategyForTrades = localStorage.getItem('useStrategyForTrades') === 'true';
+                        document.getElementById('useStrategyForTradesToggle').checked = useStrategyForTrades;
+                    } else {
+                        addLog('No strategies available');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading strategies:', error);
+                    addLog('Error loading strategies');
+                });
+        }
+        
+        // Function to execute a paper trade
+        function executePaperTrade(tradeData) {
+            // Check if strategy should be applied
+            const useStrategyForTrades = localStorage.getItem('useStrategyForTrades') === 'true';
+            if (useStrategyForTrades) {
+                // Get selected strategy
+                const strategyId = localStorage.getItem('selectedStrategyId');
+                if (strategyId) {
+                    const strategySelect = document.getElementById('strategySelect');
+                    let strategyName = 'Selected Strategy';
+                    
+                    // Find the strategy name if available
+                    for (let i = 0; i < strategySelect.options.length; i++) {
+                        if (strategySelect.options[i].value === strategyId) {
+                            strategyName = strategySelect.options[i].text;
+                            break;
+                        }
+                    }
+                    
+                    // Add strategy information to trade data
+                    tradeData.strategy_id = strategyId;
+                    tradeData.strategy_name = strategyName;
+                    
+                    addLog(`Applying strategy: ${strategyName} to trade`);
+                }
+            } else if (tradeData.strategy_id) {
+                // If specific strategy was selected in the manual trade form
+                const strategySelectModal = document.getElementById('strategySelectModal');
+                const strategyId = strategySelectModal.value;
+                
+                if (strategyId) {
+                    tradeData.strategy_id = strategyId;
+                    tradeData.strategy_name = strategySelectModal.options[strategySelectModal.selectedIndex].text;
+                }
+            }
+            
+            fetch('/api/paper-trading/trade', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(tradeData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let strategyInfo = '';
+                    if (data.strategy_name) {
+                        strategyInfo = ` using ${data.strategy_name}`;
+                    }
+                    
+                    addLog(`Executed paper trade: ${tradeData.ticker} $${tradeData.strike} ${tradeData.option_type}${strategyInfo}`);
+                    
+                    // Check if auto-close is enabled
+                    const autoCloseMinutes = parseInt(localStorage.getItem('autoClose') || '0');
+                    if (autoCloseMinutes > 0) {
+                        addLog(`Position will auto-close in ${autoCloseMinutes} minutes`);
+                        
+                        // Schedule auto-close
+                        setTimeout(() => {
+                            if (portfolio.positions.find(p => p.position_key === data.position)) {
+                                closePosition(data.position);
+                                addLog(`Auto-closed position: ${tradeData.ticker} after ${autoCloseMinutes} minutes`);
+                            }
+                        }, autoCloseMinutes * 60 * 1000);
+                    }
+                    
+                    // Refresh data
+                    refreshData();
+                } else {
+                    addLog(`Error executing paper trade: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error executing paper trade:', error);
+                addLog(`Error executing paper trade: ${error.message}`);
+            });
+        }
+        
+        // Function to close a position
+        function closePosition(positionKey, exitPrice = null) {
+            const requestBody = {
+                position_key: positionKey
+            };
+            
+            if (exitPrice !== null) {
+                requestBody.exit_price = exitPrice;
+            }
+            
+            fetch('/api/paper-trading/close', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLog(`Closed position: ${positionKey} with PnL: $${data.pnl} (${data.pnl_percent}%)`);
+                    
+                    // Refresh data
+                    refreshData();
+                } else {
+                    addLog(`Error closing position: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error closing position:', error);
+                addLog(`Error closing position: ${error.message}`);
+            });
+        }
+        
+        // Function to close all positions
+        function closeAllPositions() {
+            const promises = portfolio.positions.map(position => {
+                return fetch('/api/paper-trading/close', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        position_key: position.position_key
+                    })
+                })
+                .then(response => response.json());
+            });
+            
+            Promise.all(promises)
+                .then(results => {
+                    const successCount = results.filter(result => result.success).length;
+                    addLog(`Closed ${successCount}/${portfolio.positions.length} positions`);
+                    
+                    // Refresh data
+                    refreshData();
+                })
+                .catch(error => {
+                    console.error('Error closing all positions:', error);
+                    addLog(`Error closing all positions: ${error.message}`);
+                });
+        }
+        
+        // Function to add a log entry
+        function addLog(message) {
+            const logsContainer = document.getElementById('paperTradingLogs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const now = new Date();
+            const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            
+            logEntry.innerHTML = `<small>[${timeString}]</small> ${message}`;
+            
+            logsContainer.insertBefore(logEntry, logsContainer.firstChild);
+            
+            // Limit to 50 logs
+            if (logsContainer.children.length > 50) {
+                logsContainer.removeChild(logsContainer.lastChild);
+            }
+        }
+        
+        // Function to load paper trading logs
+        function loadPaperTradingLogs() {
+            fetch('/api/logs?module=PaperTrader&limit=20')
+                .then(response => response.json())
+                .then(data => {
+                    const logsContainer = document.getElementById('paperTradingLogs');
+                    logsContainer.innerHTML = '';
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        data.logs.forEach(log => {
+                            const logEntry = document.createElement('div');
+                            logEntry.className = `log-entry log-${log.level}`;
+                            
+                            logEntry.innerHTML = `
+                                <small>[${formatTimestamp(log.timestamp)}]</small>
+                                <span class="message">${log.message}</span>
+                            `;
+                            
+                            logsContainer.appendChild(logEntry);
+                        });
+                    } else {
+                        logsContainer.innerHTML = `
+                            <div class="text-center py-3">
+                                <p class="text-muted">No paper trading logs yet</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading logs:', error);
+                });
+        }
+        
+        // Function to export trade history to CSV
+        function exportTradeHistory() {
+            // Prepare CSV data
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Add header row
+            csvContent += "Date,Ticker,Option,Action,Contracts,Price,PnL,PnL %\n";
+            
+            // Add data rows
+            portfolio.trade_history.forEach(trade => {
+                const option = trade.strike && trade.option_type ? `$${trade.strike} ${trade.option_type}` : '';
+                const price = trade.price || trade.exit_price || trade.entry_price || '';
+                const pnl = trade.pnl || '';
+                const pnlPercent = trade.pnl_percent || '';
+                
+                csvContent += `${trade.timestamp},${trade.ticker},${option},${trade.action},${trade.contracts},${price},${pnl},${pnlPercent}\n`;
+            });
+            
+            // Create download link
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "paper_trade_history.csv");
+            document.body.appendChild(link);
+            
+            // Download the file
+            link.click();
+            
+            // Clean up
+            document.body.removeChild(link);
+        }
+        
+        // Helper function to format timestamp
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = new Date(timestamp);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const year = date.getFullYear();
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            
+            return `${month}/${day}/${year} ${hours}:${minutes.toString().padStart(2, '0')}`;
+        }
+    });
+</script>
+{% endblock %}

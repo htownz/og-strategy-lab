@@ -1,0 +1,815 @@
+{% extends "base.html" %}
+
+{% block title %}Sector Correlation Analysis{% endblock %}
+
+{% block head %}
+<!-- ApexCharts for the heatmap -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<style>
+    .correlation-card {
+        transition: all 0.3s ease;
+    }
+    
+    .correlation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .correlation-value {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .positive-high {
+        background-color: #ef4444;
+    }
+    
+    .positive-medium {
+        background-color: #f97316;
+    }
+    
+    .positive-low {
+        background-color: #f59e0b;
+    }
+    
+    .neutral {
+        background-color: #a3a3a3;
+    }
+    
+    .negative-low {
+        background-color: #3b82f6;
+    }
+    
+    .negative-medium {
+        background-color: #2563eb;
+    }
+    
+    .negative-high {
+        background-color: #1d4ed8;
+    }
+    
+    .time-button {
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+    
+    .time-button.active {
+        opacity: 1.0;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Sector Correlation Analysis</h1>
+        <div class="d-flex align-items-center">
+            <div class="me-3">
+                <span class="text-muted">Last updated:</span>
+                <span id="last-update-time">Loading...</span>
+            </div>
+            <button id="refresh-button" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Timeline Selection -->
+    <div class="mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="mb-3">Time Period</h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary time-button" data-period="7">7 Days</button>
+                            <button type="button" class="btn btn-outline-primary time-button active" data-period="30">30 Days</button>
+                            <button type="button" class="btn btn-outline-primary time-button" data-period="90">90 Days</button>
+                            <button type="button" class="btn btn-outline-primary time-button" data-period="180">6 Months</button>
+                            <button type="button" class="btn btn-outline-primary time-button" data-period="365">1 Year</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h5 class="mb-3">Correlation Type</h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary time-button active" data-type="return">Returns</button>
+                            <button type="button" class="btn btn-outline-primary time-button" data-type="volatility">Volatility</button>
+                            <button type="button" class="btn btn-outline-primary time-button" data-type="trend">Trend</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Correlation Matrix Heatmap -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-8">
+            <div class="card h-100 correlation-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Sector Correlation Matrix</h5>
+                </div>
+                <div class="card-body">
+                    <div id="correlation-heatmap" style="height: 450px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 correlation-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Correlation Insights</h5>
+                </div>
+                <div class="card-body">
+                    <div id="correlation-insights">
+                        <h6>Key Observations</h6>
+                        <ul class="insights-list">
+                            <li>Loading insights...</li>
+                        </ul>
+                        
+                        <h6 class="mt-4">Diversification Opportunities</h6>
+                        <ul class="opportunities-list">
+                            <li>Loading opportunities...</li>
+                        </ul>
+                        
+                        <h6 class="mt-4">Risk Clusters</h6>
+                        <ul class="clusters-list">
+                            <li>Loading clusters...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Correlations Table -->
+    <div class="row g-4">
+        <div class="col-md-12">
+            <div class="card correlation-card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Detailed Sector Correlations</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            Sort By
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="sortDropdown">
+                            <li><a class="dropdown-item" href="#" data-sort="name">Sector Name</a></li>
+                            <li><a class="dropdown-item" href="#" data-sort="correlation-asc">Correlation (Low to High)</a></li>
+                            <li><a class="dropdown-item" href="#" data-sort="correlation-desc">Correlation (High to Low)</a></li>
+                            <li><a class="dropdown-item" href="#" data-sort="volatility">Volatility</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Sector 1</th>
+                                    <th>Sector 2</th>
+                                    <th>Correlation</th>
+                                    <th>Strength</th>
+                                    <th>Trend</th>
+                                    <th>Risk Implication</th>
+                                </tr>
+                            </thead>
+                            <tbody id="correlations-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center">Loading correlation data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configuration
+const API_ENDPOINTS = {
+    correlations: '/risk/api/correlations'
+};
+
+// Global state
+let currentPeriod = '30';
+let currentType = 'return';
+let correlationData = null;
+let heatmapChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up time period buttons
+    document.querySelectorAll('.time-button[data-period]').forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active button
+            document.querySelectorAll('.time-button[data-period]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Update current period
+            currentPeriod = this.getAttribute('data-period');
+            
+            // Reload data
+            loadCorrelationData();
+        });
+    });
+    
+    // Set up correlation type buttons
+    document.querySelectorAll('.time-button[data-type]').forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active button
+            document.querySelectorAll('.time-button[data-type]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Update current type
+            currentType = this.getAttribute('data-type');
+            
+            // Reload data
+            loadCorrelationData();
+        });
+    });
+    
+    // Set up refresh button
+    document.getElementById('refresh-button').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Refreshing...';
+        
+        loadCorrelationData().finally(() => {
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fa fa-sync-alt me-1"></i> Refresh';
+            }, 500);
+        });
+    });
+    
+    // Set up sorting dropdown
+    document.querySelectorAll('[data-sort]').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sortBy = this.getAttribute('data-sort');
+            sortCorrelationTable(sortBy);
+        });
+    });
+    
+    // Initialize
+    initializeHeatmap();
+    loadCorrelationData();
+});
+
+async function loadCorrelationData() {
+    try {
+        // In a real implementation, this would call the API
+        // For demonstration, we'll use sample data
+        
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Generate sample correlation data based on current period and type
+        correlationData = generateSampleCorrelationData(currentPeriod, currentType);
+        
+        // Update UI with the data
+        updateCorrelationMatrix(correlationData.matrix);
+        updateInsights(correlationData.insights);
+        updateCorrelationTable(correlationData.pairs);
+        
+        // Update timestamp
+        document.getElementById('last-update-time').textContent = new Date().toLocaleTimeString();
+        
+        return true;
+    } catch (error) {
+        console.error('Error loading correlation data:', error);
+        return false;
+    }
+}
+
+function initializeHeatmap() {
+    const options = {
+        series: [],
+        chart: {
+            height: 450,
+            type: 'heatmap',
+            toolbar: {
+                show: false
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            style: {
+                fontSize: '12px'
+            },
+            formatter: function(val) {
+                return val ? val.toFixed(2) : '';
+            }
+        },
+        colors: ["#008FFB"],
+        xaxis: {
+            labels: {
+                rotate: -45,
+                rotateAlways: true
+            }
+        },
+        plotOptions: {
+            heatmap: {
+                colorScale: {
+                    ranges: [
+                        {
+                            from: -1,
+                            to: -0.7,
+                            color: '#1d4ed8',
+                            name: 'Strong Negative'
+                        },
+                        {
+                            from: -0.7,
+                            to: -0.4,
+                            color: '#2563eb',
+                            name: 'Moderate Negative'
+                        },
+                        {
+                            from: -0.4,
+                            to: -0.2,
+                            color: '#3b82f6',
+                            name: 'Weak Negative'
+                        },
+                        {
+                            from: -0.2,
+                            to: 0.2,
+                            color: '#a3a3a3',
+                            name: 'Neutral'
+                        },
+                        {
+                            from: 0.2,
+                            to: 0.4,
+                            color: '#f59e0b',
+                            name: 'Weak Positive'
+                        },
+                        {
+                            from: 0.4,
+                            to: 0.7,
+                            color: '#f97316',
+                            name: 'Moderate Positive'
+                        },
+                        {
+                            from: 0.7,
+                            to: 1,
+                            color: '#ef4444',
+                            name: 'Strong Positive'
+                        }
+                    ]
+                }
+            }
+        },
+        stroke: {
+            width: 1
+        },
+        tooltip: {
+            custom: function({ series, seriesIndex, dataPointIndex, w }) {
+                const sectorX = w.globals.labels[dataPointIndex];
+                const sectorY = w.config.series[seriesIndex].name;
+                const value = series[seriesIndex][dataPointIndex];
+                
+                return `
+                    <div class="custom-tooltip">
+                        <div class="font-bold">${sectorX} vs ${sectorY}</div>
+                        <div>Correlation: ${value.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+        }
+    };
+    
+    heatmapChart = new ApexCharts(document.querySelector("#correlation-heatmap"), options);
+    heatmapChart.render();
+}
+
+function updateCorrelationMatrix(matrix) {
+    // Extract sectors and correlation values for heatmap
+    const sectors = Object.keys(matrix);
+    
+    const series = sectors.map(sector => {
+        return {
+            name: sector,
+            data: sectors.map(otherSector => matrix[sector][otherSector])
+        };
+    });
+    
+    // Update the heatmap
+    heatmapChart.updateOptions({
+        series: series,
+        xaxis: {
+            categories: sectors
+        }
+    });
+}
+
+function updateInsights(insights) {
+    // Update key observations
+    const observationsList = document.querySelector('.insights-list');
+    observationsList.innerHTML = '';
+    
+    insights.observations.forEach(observation => {
+        const li = document.createElement('li');
+        li.textContent = observation;
+        observationsList.appendChild(li);
+    });
+    
+    // Update diversification opportunities
+    const opportunitiesList = document.querySelector('.opportunities-list');
+    opportunitiesList.innerHTML = '';
+    
+    insights.opportunities.forEach(opportunity => {
+        const li = document.createElement('li');
+        li.textContent = opportunity;
+        opportunitiesList.appendChild(li);
+    });
+    
+    // Update risk clusters
+    const clustersList = document.querySelector('.clusters-list');
+    clustersList.innerHTML = '';
+    
+    insights.clusters.forEach(cluster => {
+        const li = document.createElement('li');
+        li.textContent = cluster;
+        clustersList.appendChild(li);
+    });
+}
+
+function updateCorrelationTable(pairs) {
+    const tableBody = document.getElementById('correlations-table-body');
+    tableBody.innerHTML = '';
+    
+    pairs.forEach(pair => {
+        const row = document.createElement('tr');
+        
+        // Sector 1
+        const sector1Cell = document.createElement('td');
+        sector1Cell.textContent = pair.sector1;
+        row.appendChild(sector1Cell);
+        
+        // Sector 2
+        const sector2Cell = document.createElement('td');
+        sector2Cell.textContent = pair.sector2;
+        row.appendChild(sector2Cell);
+        
+        // Correlation
+        const corrCell = document.createElement('td');
+        corrCell.textContent = pair.correlation.toFixed(2);
+        row.appendChild(corrCell);
+        
+        // Strength
+        const strengthCell = document.createElement('td');
+        const strengthClass = getCorrelationClass(pair.correlation);
+        const strengthDiv = document.createElement('div');
+        strengthDiv.className = `correlation-value ${strengthClass}`;
+        strengthDiv.textContent = pair.correlation.toFixed(2);
+        strengthCell.appendChild(strengthDiv);
+        row.appendChild(strengthCell);
+        
+        // Trend
+        const trendCell = document.createElement('td');
+        const trendIcon = document.createElement('i');
+        
+        if (pair.trend > 0.1) {
+            trendIcon.className = 'fas fa-arrow-up text-success';
+            trendCell.appendChild(trendIcon);
+            trendCell.appendChild(document.createTextNode(' Increasing'));
+        } else if (pair.trend < -0.1) {
+            trendIcon.className = 'fas fa-arrow-down text-danger';
+            trendCell.appendChild(trendIcon);
+            trendCell.appendChild(document.createTextNode(' Decreasing'));
+        } else {
+            trendIcon.className = 'fas fa-equals text-info';
+            trendCell.appendChild(trendIcon);
+            trendCell.appendChild(document.createTextNode(' Stable'));
+        }
+        
+        row.appendChild(trendCell);
+        
+        // Risk Implication
+        const riskCell = document.createElement('td');
+        riskCell.textContent = pair.riskImplication;
+        row.appendChild(riskCell);
+        
+        tableBody.appendChild(row);
+    });
+}
+
+function getCorrelationClass(correlation) {
+    const absCorr = Math.abs(correlation);
+    
+    if (correlation > 0) {
+        if (absCorr >= 0.7) return 'positive-high';
+        if (absCorr >= 0.4) return 'positive-medium';
+        if (absCorr >= 0.2) return 'positive-low';
+    } else {
+        if (absCorr >= 0.7) return 'negative-high';
+        if (absCorr >= 0.4) return 'negative-medium';
+        if (absCorr >= 0.2) return 'negative-low';
+    }
+    
+    return 'neutral';
+}
+
+function sortCorrelationTable(sortBy) {
+    if (!correlationData || !correlationData.pairs) return;
+    
+    const pairs = [...correlationData.pairs]; // Create a copy
+    
+    switch (sortBy) {
+        case 'name':
+            pairs.sort((a, b) => a.sector1.localeCompare(b.sector1));
+            break;
+        case 'correlation-asc':
+            pairs.sort((a, b) => a.correlation - b.correlation);
+            break;
+        case 'correlation-desc':
+            pairs.sort((a, b) => b.correlation - a.correlation);
+            break;
+        case 'volatility':
+            pairs.sort((a, b) => b.volatility - a.volatility);
+            break;
+        default:
+            return;
+    }
+    
+    // Update the table with sorted data
+    updateCorrelationTable(pairs);
+}
+
+// Generate sample correlation data
+function generateSampleCorrelationData(period, type) {
+    // Define sectors
+    const sectors = [
+        'Technology', 
+        'Financials', 
+        'Healthcare', 
+        'Consumer Discretionary', 
+        'Consumer Staples',
+        'Energy',
+        'Utilities',
+        'Materials',
+        'Real Estate',
+        'Communication Services'
+    ];
+    
+    // Generate correlation matrix
+    const matrix = {};
+    sectors.forEach(sector1 => {
+        matrix[sector1] = {};
+        sectors.forEach(sector2 => {
+            if (sector1 === sector2) {
+                matrix[sector1][sector2] = 1.0;
+            } else {
+                // Generate different correlations based on sector relationships
+                // This is a simplified model - in reality, this would use real market data
+                const baseCorrelation = generateBaseCorrelation(sector1, sector2);
+                
+                // Adjust based on period (longer periods tend toward historical average)
+                const periodFactor = period === '7' ? 0.3 : 
+                                    period === '30' ? 0.2 : 
+                                    period === '90' ? 0.1 : 
+                                    period === '180' ? 0.05 : 0.02;
+                
+                // Add some randomness based on period
+                const randomComponent = (Math.random() - 0.5) * periodFactor;
+                
+                // Adjust based on type
+                const typeAdjustment = type === 'volatility' ? 0.15 : 
+                                       type === 'trend' ? -0.1 : 0;
+                
+                // Calculate final correlation 
+                let correlation = baseCorrelation + randomComponent + typeAdjustment;
+                
+                // Ensure correlation is between -1 and 1
+                correlation = Math.max(-0.95, Math.min(0.95, correlation));
+                
+                matrix[sector1][sector2] = correlation;
+                
+                // Ensure symmetry (correlation of A to B is same as B to A)
+                if (!matrix[sector2][sector1]) {
+                    matrix[sector2][sector1] = correlation;
+                }
+            }
+        });
+    });
+    
+    // Generate correlation pairs data for the table
+    const pairs = [];
+    for (let i = 0; i < sectors.length; i++) {
+        for (let j = i + 1; j < sectors.length; j++) {
+            const sector1 = sectors[i];
+            const sector2 = sectors[j];
+            const correlation = matrix[sector1][sector2];
+            
+            // Generate a trend (change in correlation)
+            const trend = (Math.random() - 0.5) * 0.3;
+            
+            // Generate a risk implication based on correlation
+            const riskImplication = generateRiskImplication(correlation, sector1, sector2);
+            
+            pairs.push({
+                sector1,
+                sector2,
+                correlation,
+                trend,
+                volatility: Math.random() * 0.3 + 0.1,
+                riskImplication
+            });
+        }
+    }
+    
+    // Sort pairs by correlation (highest first)
+    pairs.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+    
+    // Generate insights
+    const insights = generateInsights(matrix, pairs, period, type);
+    
+    return {
+        matrix,
+        pairs,
+        insights
+    };
+}
+
+function generateBaseCorrelation(sector1, sector2) {
+    // Define natural relationships between sectors
+    const sectorRelationships = {
+        'Technology': {
+            'Communication Services': 0.75,
+            'Consumer Discretionary': 0.6,
+            'Financials': 0.5,
+            'Healthcare': 0.3,
+            'Energy': -0.2,
+            'Utilities': -0.3,
+            'Consumer Staples': 0.0,
+            'Materials': 0.3,
+            'Real Estate': 0.15
+        },
+        'Financials': {
+            'Real Estate': 0.65,
+            'Energy': 0.4,
+            'Utilities': 0.4,
+            'Consumer Discretionary': 0.5,
+            'Technology': 0.5,
+            'Healthcare': 0.25,
+            'Consumer Staples': 0.3,
+            'Materials': 0.4,
+            'Communication Services': 0.3
+        },
+        'Healthcare': {
+            'Consumer Staples': 0.6,
+            'Technology': 0.3,
+            'Materials': 0.45,
+            'Utilities': 0.3,
+            'Communication Services': 0.2,
+            'Energy': 0.1,
+            'Real Estate': 0.2,
+            'Consumer Discretionary': 0.25,
+            'Financials': 0.25
+        },
+        // Default fallback if not specified
+        'default': 0.3
+    };
+    
+    // Look up correlation, with fallbacks
+    if (sectorRelationships[sector1] && sectorRelationships[sector1][sector2] !== undefined) {
+        return sectorRelationships[sector1][sector2];
+    } else if (sectorRelationships[sector2] && sectorRelationships[sector2][sector1] !== undefined) {
+        return sectorRelationships[sector2][sector1];
+    } else {
+        return sectorRelationships['default'];
+    }
+}
+
+function generateRiskImplication(correlation, sector1, sector2) {
+    const absCorrelation = Math.abs(correlation);
+    
+    if (absCorrelation > 0.7) {
+        if (correlation > 0) {
+            return `High concentration risk when combining ${sector1} and ${sector2}`;
+        } else {
+            return `Strong diversification benefit between ${sector1} and ${sector2}`;
+        }
+    } else if (absCorrelation > 0.4) {
+        if (correlation > 0) {
+            return `Moderate concentration risk when combining ${sector1} and ${sector2}`;
+        } else {
+            return `Good hedging opportunity between ${sector1} and ${sector2}`;
+        }
+    } else if (absCorrelation > 0.2) {
+        if (correlation > 0) {
+            return `Slight tendency to move together`;
+        } else {
+            return `Slight tendency to move in opposite directions`;
+        }
+    } else {
+        return `Limited correlation impact - close to independent movement`;
+    }
+}
+
+function generateInsights(matrix, pairs, period, type) {
+    // Find highest positive correlations
+    const highestPositive = pairs
+        .filter(pair => pair.correlation > 0.6)
+        .slice(0, 3)
+        .map(pair => `${pair.sector1} and ${pair.sector2} show strong positive correlation (${pair.correlation.toFixed(2)})`);
+    
+    // Find lowest negative correlations
+    const lowestNegative = pairs
+        .filter(pair => pair.correlation < -0.3)
+        .slice(0, 3)
+        .map(pair => `${pair.sector1} and ${pair.sector2} show significant negative correlation (${pair.correlation.toFixed(2)})`);
+    
+    // Find sectors with most diverse correlations
+    const sectors = Object.keys(matrix);
+    const sectorDiversity = sectors.map(sector => {
+        const correlations = Object.values(matrix[sector]).filter(val => val !== 1); // Exclude self-correlation
+        const diversity = Math.max(...correlations) - Math.min(...correlations);
+        return { sector, diversity };
+    });
+    
+    sectorDiversity.sort((a, b) => b.diversity - a.diversity);
+    
+    const diverseSectors = sectorDiversity
+        .slice(0, 2)
+        .map(item => `${item.sector} shows the most diverse correlation profile`);
+    
+    // Generate observations
+    const observations = [
+        ...highestPositive,
+        ...lowestNegative,
+        ...diverseSectors
+    ];
+    
+    // If no strong correlations found, add default observation
+    if (observations.length === 0) {
+        observations.push("No strong correlations detected in the current time period");
+    }
+    
+    // Generate diversification opportunities
+    const opportunities = pairs
+        .filter(pair => pair.correlation < -0.2)
+        .slice(0, 4)
+        .map(pair => `Pairing ${pair.sector1} with ${pair.sector2} offers diversification benefits`);
+    
+    if (opportunities.length === 0) {
+        opportunities.push("Limited diversification opportunities across sectors in this time period");
+    }
+    
+    // Generate risk clusters
+    const highCorrelationPairs = pairs.filter(pair => pair.correlation > 0.7);
+    
+    // Group sectors into clusters based on high correlations
+    const clusterMap = {};
+    highCorrelationPairs.forEach(pair => {
+        if (!clusterMap[pair.sector1]) {
+            clusterMap[pair.sector1] = [pair.sector2];
+        } else {
+            clusterMap[pair.sector1].push(pair.sector2);
+        }
+        
+        if (!clusterMap[pair.sector2]) {
+            clusterMap[pair.sector2] = [pair.sector1];
+        } else {
+            clusterMap[pair.sector2].push(pair.sector1);
+        }
+    });
+    
+    // Convert clusters into insight texts
+    const clusters = [];
+    const processedSectors = new Set();
+    
+    Object.entries(clusterMap).forEach(([sector, relatedSectors]) => {
+        if (!processedSectors.has(sector) && relatedSectors.length > 0) {
+            // Add all sectors in this cluster to processed
+            processedSectors.add(sector);
+            relatedSectors.forEach(s => processedSectors.add(s));
+            
+            clusters.push(`Risk cluster detected: ${sector} + ${relatedSectors.join(' + ')}`);
+        }
+    });
+    
+    if (clusters.length === 0) {
+        clusters.push("No significant risk clusters detected");
+    }
+    
+    return {
+        observations,
+        opportunities,
+        clusters
+    };
+}
+</script>
+{% endblock %}

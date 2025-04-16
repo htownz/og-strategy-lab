@@ -1,0 +1,184 @@
+/**
+ * OG Signal Bot - Main Styles
+ */
+
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #0dcaf0;
+  --dark-color: #212529;
+  --light-color: #f8f9fa;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+/* Custom Card Styles */
+.card {
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  font-weight: 600;
+}
+
+/* Signal and Trade Cards */
+.signal-card, .trade-card {
+  transition: transform 0.2s ease;
+}
+
+.signal-card:hover, .trade-card:hover {
+  transform: translateY(-3px);
+}
+
+.signal-up {
+  border-left: 4px solid var(--success-color);
+}
+
+.signal-down {
+  border-left: 4px solid var(--danger-color);
+}
+
+/* Stats Cards */
+.stats-card {
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  background-color: #303030;
+  height: 100%;
+}
+
+.stats-card h5 {
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.stats-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Strategy Section */
+.strategy-config-item {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Notifications */
+.notification-badge {
+  position: relative;
+}
+
+.notification-badge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  background-color: var(--danger-color);
+  border-radius: 50%;
+  display: none;
+}
+
+.notification-badge.has-notification::after {
+  display: block;
+}
+
+/* Custom Table Styles */
+.table-dark {
+  background-color: #303030;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+/* Tooltips */
+.tooltip-inner {
+  max-width: 300px;
+}
+
+/* Badge Styles */
+.badge.bg-profit {
+  background-color: var(--success-color);
+}
+
+.badge.bg-loss {
+  background-color: var(--danger-color);
+}
+
+/* Terminal-like log display */
+.terminal-logs {
+  background-color: #1a1a1a;
+  font-family: Monaco, monospace;
+  font-size: 0.85rem;
+  color: #f1f1f1;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.terminal-logs .log-INFO {
+  color: #9acd32;
+}
+
+.terminal-logs .log-WARNING {
+  color: #ffd700;
+}
+
+.terminal-logs .log-ERROR {
+  color: #ff6347;
+}
+
+.terminal-logs .log-DEBUG {
+  color: #87ceeb;
+}
+
+/* Analytics Dashboard */
+.analytics-widget {
+  height: 300px;
+}
+
+.analytics-filter {
+  background-color: #2c2c2c;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 992px) {
+  .stats-value {
+    font-size: 1.5rem;
+  }
+  
+  .analytics-widget {
+    height: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-card {
+    margin-bottom: 1rem;
+  }
+  
+  .analytics-widget {
+    height: 200px;
+  }
+}

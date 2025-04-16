@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio Risk Analysis{% endblock %}
+
+{% block head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- ApexCharts for advanced visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<style>
+    .risk-card {
+        transition: all 0.3s ease;
+    }
+    .risk-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .risk-low {
+        color: #10b981;
+    }
+    .risk-medium {
+        color: #f59e0b;
+    }
+    .risk-high {
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Portfolio Risk Analysis</h1>
+        <div class="d-flex align-items-center">
+            <div class="me-3">
+                <span class="text-muted">Last updated:</span>
+                <span id="last-update-time">Loading...</span>
+            </div>
+            <button id="refresh-button" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 risk-card">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-1">Portfolio Value</h6>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0" id="portfolio-value">$0</h2>
+                    </div>
+                    <small class="text-muted" id="portfolio-positions">0 positions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 risk-card">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-1">Value at Risk (95%)</h6>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0" id="portfolio-var">0.00%</h2>
+                    </div>
+                    <small class="text-muted">1-day potential loss</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 risk-card">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-1">Expected Shortfall</h6>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0" id="portfolio-es">0.00%</h2>
+                    </div>
+                    <small class="text-muted">Expected tail loss</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 risk-card">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-1">Risk Concentration</h6>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0" id="risk-concentration">0.00</h2>
+                    </div>
+                    <small class="text-muted">HHI (0-1)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-3 mb-4">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Portfolio Performance & Risk</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-light" type="button" id="time-period-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span id="selected-period">30 Days</span> <i class="fa fa-caret-down"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="time-period-dropdown">
+                                <li><a class="dropdown-item" href="#" data-period="7">7 Days</a></li>
+                                <li><a class="dropdown-item" href="#" data-period="30">30 Days</a></li>
+                                <li><a class="dropdown-item" href="#" data-period="90">90 Days</a></li>
+                                <li><a class="dropdown-item" href="#" data-period="180">180 Days</a></li>
+                                <li><a class="dropdown-item" href="#" data-period="365">1 Year</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="portfolio-performance-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="card-title mb-0">Key Risk Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted">Sharpe Ratio</td>
+                                <td id="sharpe-ratio" class="text-end">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Volatility (Annualized)</td>
+                                <td id="volatility" class="text-end">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Maximum Drawdown</td>
+                                <td id="max-drawdown" class="text-end">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Beta to S&P 500</td>
+                                <td id="beta-spy" class="text-end">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">VaR (99%)</td>
+                                <td id="var-99" class="text-end">--</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">VaR (95%)</td>
+                                <td id="var-95" class="text-end">--</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="card-title mb-0">Sector Allocation</h5>
+                </div>
+                <div class="card-body">
+                    <div id="sector-allocation-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2">
+                    <h5 class="card-title mb-0">Position Allocation</h5>
+                </div>
+                <div class="card-body">
+                    <div id="position-allocation-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Helper functions
+function formatPercent(value, decimals = 1) {
+    if (value === null || value === undefined) return '--';
+    return (value * 100).toFixed(decimals) + '%';
+}
+
+function formatNumber(value, decimals = 2) {
+    if (value === null || value === undefined) return '--';
+    return value.toFixed(decimals);
+}
+
+function formatCurrency(value, decimals = 0) {
+    if (value === null || value === undefined) return '--';
+    return '$' + value.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function getRiskClass(value, thresholds = {low: 0.03, medium: 0.08}) {
+    if (value < thresholds.low) return 'risk-low';
+    if (value < thresholds.medium) return 'risk-medium';
+    return 'risk-high';
+}
+
+// Initialize charts
+let performanceChart, sectorAllocationChart, positionAllocationChart;
+let selectedPeriod = 30;
+
+function initializeCharts() {
+    // Portfolio Performance Chart
+    const performanceOptions = {
+        series: [
+            {
+                name: 'Portfolio Value',
+                type: 'line',
+                data: []
+            },
+            {
+                name: 'VaR (95%)',
+                type: 'area',
+                data: []
+            }
+        ],
+        chart: {
+            height: 300,
+            type: 'line',
+            stacked: false,
+            toolbar: {
+                show: false
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: [3, 1]
+        },
+        fill: {
+            type: ['solid', 'gradient'],
+            gradient: {
+                opacityFrom: 0.4,
+                opacityTo: 0.1,
+                shade: 'danger',
+                gradientToColors: ['#ef4444']
+            }
+        },
+        colors: ['#2563eb', '#ef4444'],
+        xaxis: {
+            type: 'datetime',
+            categories: []
+        },
+        yaxis: [
+            {
+                title: {
+                    text: 'Portfolio Value'
+                },
+                labels: {
+                    formatter: function(val) {
+                        return formatCurrency(val);
+                    }
+                }
+            },
+            {
+                opposite: true,
+                title: {
+                    text: 'Value at Risk'
+                },
+                labels: {
+                    formatter: function(val) {
+                        return formatPercent(val);
+                    }
+                }
+            }
+        ],
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: function(value, { seriesIndex }) {
+                    if (seriesIndex === 0) {
+                        return formatCurrency(value);
+                    } else {
+                        return formatPercent(value);
+                    }
+                }
+            }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'left'
+        }
+    };
+    performanceChart = new ApexCharts(document.querySelector("#portfolio-performance-chart"), performanceOptions);
+    performanceChart.render();
+    
+    // Sector Allocation Chart
+    const sectorOptions = {
+        series: [],
+        chart: {
+            type: 'pie',
+            height: 300
+        },
+        labels: [],
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: {
+                    height: 300
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }],
+        colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'],
+        tooltip: {
+            y: {
+                formatter: function(value) {
+                    return formatPercent(value, 1);
+                }
+            }
+        }
+    };
+    sectorAllocationChart = new ApexCharts(document.querySelector("#sector-allocation-chart"), sectorOptions);
+    sectorAllocationChart.render();
+    
+    // Position Allocation Chart
+    const positionOptions = {
+        series: [{
+            name: 'Allocation',
+            data: []
+        }],
+        chart: {
+            type: 'bar',
+            height: 300,
+            toolbar: {
+                show: false
+            }
+        },
+        plotOptions: {
+            bar: {
+                horizontal: true,
+                barHeight: '70%',
+                distributed: true
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        xaxis: {
+            categories: [],
+            labels: {
+                formatter: function(val) {
+                    return formatPercent(val, 1);
+                }
+            }
+        },
+        colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'],
+        tooltip: {
+            y: {
+                formatter: function(value) {
+                    return formatPercent(value, 2);
+                }
+            }
+        }
+    };
+    positionAllocationChart = new ApexCharts(document.querySelector("#position-allocation-chart"), positionOptions);
+    positionAllocationChart.render();
+}
+
+// Load portfolio risk data
+async function loadPortfolioRiskData() {
+    try {
+        // Request portfolio risk data
+        const response = await fetch('/risk/api/portfolio');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('API response indicated failure');
+        }
+        
+        // Update UI with portfolio risk data
+        updatePortfolioRiskUI(data.data);
+        updateLastUpdated(data.timestamp);
+        
+        // Generate synthetic performance data (would be real in production)
+        const performanceData = generatePerformanceData(selectedPeriod);
+        updatePerformanceChart(performanceData);
+        
+    } catch (error) {
+        console.error('Error loading portfolio risk data:', error);
+        // Display error message
+    }
+}
+
+// Update portfolio risk UI
+function updatePortfolioRiskUI(data) {
+    // Update summary metrics
+    document.getElementById('portfolio-value').textContent = formatCurrency(data.total_value);
+    
+    const positionCount = Object.keys(data.portfolio_allocation || {}).length;
+    document.getElementById('portfolio-positions').textContent = `${positionCount} positions`;
+    
+    // Update risk metrics
+    const varElement = document.getElementById('portfolio-var');
+    varElement.textContent = formatPercent(data.var_95);
+    varElement.className = getRiskClass(data.var_95);
+    
+    const esElement = document.getElementById('portfolio-es');
+    esElement.textContent = formatPercent(data.expected_shortfall);
+    esElement.className = getRiskClass(data.expected_shortfall);
+    
+    const concentrationElement = document.getElementById('risk-concentration');
+    concentrationElement.textContent = formatNumber(data.risk_concentration);
+    concentrationElement.className = getRiskClass(data.risk_concentration, {low: 0.3, medium: 0.6});
+    
+    // Update detailed metrics table
+    document.getElementById('sharpe-ratio').textContent = formatNumber(data.sharpe_ratio);
+    document.getElementById('volatility').textContent = formatPercent(data.volatility);
+    document.getElementById('max-drawdown').textContent = formatPercent(data.max_drawdown);
+    document.getElementById('beta-spy').textContent = formatNumber(data.beta_to_spy);
+    document.getElementById('var-99').textContent = formatPercent(data.var_99);
+    document.getElementById('var-95').textContent = formatPercent(data.var_95);
+    
+    // Update sector allocation chart
+    const sectorExposure = data.sector_exposure || {};
+    const sectorData = Object.entries(sectorExposure)
+        .sort((a, b) => b[1] - a[1]);
+    
+    sectorAllocationChart.updateOptions({
+        labels: sectorData.map(([sector, _]) => sector),
+        series: sectorData.map(([_, exposure]) => exposure)
+    });
+    
+    // Update position allocation chart
+    const allocations = data.portfolio_allocation || {};
+    const allocationData = Object.entries(allocations)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8); // Top 8 positions
+    
+    positionAllocationChart.updateOptions({
+        xaxis: {
+            categories: allocationData.map(([symbol, _]) => symbol)
+        },
+        series: [{
+            name: 'Allocation',
+            data: allocationData.map(([_, allocation]) => allocation)
+        }]
+    });
+}
+
+// Generate synthetic performance data (would use real data in production)
+function generatePerformanceData(days) {
+    const data = {
+        dates: [],
+        values: [],
+        vars: []
+    };
+    
+    const today = new Date();
+    let value = 100000;
+    
+    for (let i = days; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        // Generate random daily return
+        const dailyReturn = (Math.random() * 0.02) - 0.01; // -1% to +1%
+        value *= (1 + dailyReturn);
+        
+        // Calculate VaR as percentage of portfolio value
+        const var95 = 0.02 + (Math.random() * 0.01); // 2-3%
+        
+        data.dates.push(date.getTime());
+        data.values.push(value);
+        data.vars.push(var95);
+    }
+    
+    return data;
+}
+
+// Update performance chart with new data
+function updatePerformanceChart(data) {
+    performanceChart.updateOptions({
+        xaxis: {
+            categories: data.dates
+        },
+        series: [
+            {
+                name: 'Portfolio Value',
+                type: 'line',
+                data: data.values
+            },
+            {
+                name: 'VaR (95%)',
+                type: 'area',
+                data: data.vars
+            }
+        ]
+    });
+}
+
+function updateLastUpdated(timestamp) {
+    const element = document.getElementById('last-update-time');
+    if (!timestamp) {
+        element.textContent = 'Never';
+        return;
+    }
+    
+    try {
+        const date = new Date(timestamp);
+        element.textContent = date.toLocaleTimeString();
+    } catch (e) {
+        element.textContent = timestamp;
+    }
+}
+
+// Document ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Load initial data
+    loadPortfolioRiskData();
+    
+    // Set up periodic refresh
+    setInterval(loadPortfolioRiskData, 60000); // Refresh every minute
+    
+    // Set up refresh button
+    document.getElementById('refresh-button').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Refreshing...';
+        
+        loadPortfolioRiskData().finally(() => {
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fa fa-sync-alt me-1"></i> Refresh';
+            }, 500);
+        });
+    });
+    
+    // Set up time period dropdown
+    document.querySelectorAll('[data-period]').forEach(element => {
+        element.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Update selected period
+            selectedPeriod = parseInt(this.getAttribute('data-period'), 10);
+            document.getElementById('selected-period').textContent = 
+                selectedPeriod + (selectedPeriod === 365 ? ' Year' : ' Days');
+            
+            // Generate new performance data for the selected period
+            const performanceData = generatePerformanceData(selectedPeriod);
+            updatePerformanceChart(performanceData);
+        });
+    });
+});
+</script>
+{% endblock %}

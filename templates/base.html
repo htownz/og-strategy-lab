@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OG Signal Bot{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    
+    <!-- Modern Theme CSS -->
+    <link rel="stylesheet" href="/static/css/modern-theme.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- TradingView Widget -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Toast container for notifications -->
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;"></div>
+    
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <div class="logo-container me-2">
+                    <i class="fa fa-bolt fa-lg logo-icon"></i>
+                </div>
+                <span>OG Signal Bot</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
+                            <i class="fa fa-gauge-high me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/signals' %}active{% endif %}" href="/signals">
+                            <i class="fa fa-bolt me-1"></i> Signals
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/trades' %}active{% endif %}" href="/trades">
+                            <i class="fa fa-money-bill-trend-up me-1"></i> Trades
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if '/strategy' in request.path or '/outcome' in request.path or '/daily-analytics' in request.path %}active{% endif %}" 
+                           href="#" id="strategiesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa fa-diagram-project me-1"></i> Strategies
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="strategiesDropdown">
+                            <li><a class="dropdown-item" href="/strategy-config"><i class="fa fa-sliders me-2"></i>Configure</a></li>
+                            <li><a class="dropdown-item" href="/strategy-builder"><i class="fa fa-sitemap me-2"></i>Strategy Builder</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/outcome-analysis"><i class="fa fa-chart-pie me-2"></i>Outcome Analysis</a></li>
+                            <li><a class="dropdown-item" href="/daily-analytics"><i class="fa fa-chart-column me-2"></i>Analytics</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/options' %}active{% endif %}" href="/options">
+                            <i class="fa fa-chart-line me-1"></i> Options
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/og-scanner' %}active{% endif %}" href="/og-scanner">
+                            <i class="fa fa-radar me-1"></i> Scanner
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if '/social/' in request.path %}active{% endif %}" 
+                           href="#" id="socialDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa fa-share-nodes me-1"></i> Share
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="socialDropdown">
+                            <li><a class="dropdown-item" href="/social/signal"><i class="fa fa-bolt me-2"></i>Share Signals</a></li>
+                            <li><a class="dropdown-item" href="/social/performance"><i class="fa fa-chart-line me-2"></i>Share Performance</a></li>
+                            <li><a class="dropdown-item" href="/social/strategy"><i class="fa fa-lightbulb me-2"></i>Share Strategy</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/social/templates"><i class="fa fa-pen-to-square me-2"></i>Customize Templates</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/ai/dashboard' %}active{% endif %}" href="/ai/dashboard">
+                            <i class="fa fa-brain me-1"></i> AI Strategy
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/paper-trading' %}active{% endif %}" href="/paper-trading">
+                            <i class="fa fa-file-lines me-1"></i> Paper Trading
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/quotestream' %}active{% endif %}" href="/quotestream">
+                            <i class="fa fa-chart-simple me-1"></i> QuoteStream
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link position-relative {% if request.path == '/signal-health' %}active{% endif %}" href="/signal-health">
+                            <i class="fa fa-heart-pulse"></i>
+                            <span id="signalHealthIndicator" class="position-absolute top-0 start-100 translate-middle p-1 bg-success rounded-circle">
+                                <span class="visually-hidden">Signal Health</span>
+                            </span>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.path == '/settings' or request.path == '/market-settings' or request.path == '/logs' or request.path == '/system' %}active{% endif %}" 
+                           href="#" id="systemDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa fa-gear me-1"></i> System
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="systemDropdown">
+                            <li><a class="dropdown-item" href="/settings"><i class="fa fa-sliders me-2"></i> Settings</a></li>
+                            <li><a class="dropdown-item" href="/market-settings"><i class="fa fa-chart-candlestick me-2"></i> Market Settings</a></li>
+                            <li><a class="dropdown-item" href="/logs"><i class="fa fa-list-check me-2"></i> Logs</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/system"><i class="fa fa-shield-halved me-2"></i> System Status</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/logout"><i class="fa fa-right-from-bracket me-2"></i> Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- System Status Bar -->
+    <div id="systemStatusBar" class="status-bar py-2">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <div id="systemActiveIndicator" class="status-badge me-3">
+                    <i class="fa fa-circle-check status-icon"></i>
+                    <span class="status-text">System Active</span>
+                </div>
+                <span id="systemStatusMessage" class="text-secondary">All systems operational</span>
+            </div>
+            <div>
+                <button id="toggleTradingBtn" class="btn btn-sm btn-warning">
+                    <i class="fa fa-pause me-1"></i> Pause Trading
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    <div class="container-fluid mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {% if category == 'success' %}
+                            <i class="fa fa-circle-check me-2"></i>
+                        {% elif category == 'danger' %}
+                            <i class="fa fa-circle-exclamation me-2"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fa fa-triangle-exclamation me-2"></i>
+                        {% elif category == 'info' %}
+                            <i class="fa fa-circle-info me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 mt-5">
+        <div class="container-fluid">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fa fa-chart-line fa-2x me-3 text-accent"></i>
+                        <h5 class="mb-0">OG Signal Bot</h5>
+                    </div>
+                    <p class="text-secondary mb-4">Advanced options trading strategy system with multi-timeframe analysis and pattern recognition.</p>
+                    <div class="d-flex gap-3">
+                        <a href="#" class="text-secondary transition-all hover-text-accent">
+                            <i class="fab fa-github fa-lg"></i>
+                        </a>
+                        <a href="#" class="text-secondary transition-all hover-text-accent">
+                            <i class="fab fa-twitter fa-lg"></i>
+                        </a>
+                        <a href="#" class="text-secondary transition-all hover-text-accent">
+                            <i class="fab fa-telegram fa-lg"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h6 class="mb-3 text-accent">Trading</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/dashboard" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Dashboard</a></li>
+                        <li class="mb-2"><a href="/signals" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Signals</a></li>
+                        <li class="mb-2"><a href="/trades" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Trades</a></li>
+                        <li class="mb-2"><a href="/paper-trading" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Paper Trading</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h6 class="mb-3 text-accent">Analysis</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/og-scanner" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Scanner</a></li>
+                        <li class="mb-2"><a href="/options" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Options Chain</a></li>
+                        <li class="mb-2"><a href="/quotestream" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>QuoteStream</a></li>
+                        <li class="mb-2"><a href="/outcome-analysis" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Outcomes</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h6 class="mb-3 text-accent">Social</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/social/signal" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Share Signals</a></li>
+                        <li class="mb-2"><a href="/social/performance" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Share Performance</a></li>
+                        <li class="mb-2"><a href="/social/strategy" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Share Strategy</a></li>
+                        <li class="mb-2"><a href="/social/templates" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Customize Templates</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h6 class="mb-3 text-accent">Strategy</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/strategy-config" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Configure</a></li>
+                        <li class="mb-2"><a href="/strategy-builder" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Builder</a></li>
+                        <li class="mb-2"><a href="/daily-analytics" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Analytics</a></li>
+                        <li class="mb-2"><a href="/snap-trade-analysis" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>SNAP Example</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h6 class="mb-3 text-accent">System</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/settings" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Settings</a></li>
+                        <li class="mb-2"><a href="/market-settings" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Market Settings</a></li>
+                        <li class="mb-2"><a href="/logs" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Logs</a></li>
+                        <li class="mb-2"><a href="/system" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>System Status</a></li>
+                        <li class="mb-2"><a href="/signal-health" class="text-secondary text-decoration-none transition-all"><i class="fa fa-angle-right me-2"></i>Signal Health</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <hr class="my-4 opacity-25">
+            
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <div class="text-secondary mb-3 mb-md-0">
+                    <small>&copy; 2025 OG Signal Bot. All rights reserved.</small>
+                </div>
+                <div class="text-secondary">
+                    <a href="#" class="text-secondary text-decoration-none me-3 transition-all">Terms</a>
+                    <a href="#" class="text-secondary text-decoration-none me-3 transition-all">Privacy</a>
+                    <a href="#" class="text-secondary text-decoration-none transition-all">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

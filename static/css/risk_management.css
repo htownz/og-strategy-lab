@@ -1,0 +1,229 @@
+/**
+ * Risk Management Configuration Panel
+ * Styles for risk management components
+ */
+
+/* Risk Profile Cards */
+.risk-profile-card {
+    transition: all 0.3s ease;
+    border: 1px solid var(--bs-secondary);
+}
+
+.risk-profile-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.risk-profile-card.active {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+}
+
+/* Risk Metrics Badges */
+.risk-metric {
+    font-weight: bold;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.risk-metric-high {
+    background-color: var(--bs-danger);
+    color: white;
+}
+
+.risk-metric-medium {
+    background-color: var(--bs-warning);
+    color: black;
+}
+
+.risk-metric-low {
+    background-color: var(--bs-success);
+    color: white;
+}
+
+/* Risk Heatmap */
+.risk-heatmap-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.risk-heatmap-table th,
+.risk-heatmap-table td {
+    text-align: center;
+    vertical-align: middle;
+    padding: 8px 4px;
+}
+
+.risk-heatmap-table .strategy-name {
+    font-weight: bold;
+    text-align: left;
+}
+
+/* Risk Tabs */
+.risk-tabs {
+    border-bottom: 1px solid var(--bs-secondary);
+    margin-bottom: 1rem;
+}
+
+.risk-tab {
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem 0.25rem 0 0;
+    margin-right: 0.25rem;
+    color: var(--bs-secondary);
+    background-color: transparent;
+    cursor: pointer;
+}
+
+.risk-tab:hover {
+    color: var(--bs-primary);
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.risk-tab.active {
+    color: var(--bs-primary);
+    border-bottom: 2px solid var(--bs-primary);
+    font-weight: bold;
+}
+
+/* Risk Settings */
+.risk-setting-group {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    background-color: var(--bs-gray-900);
+}
+
+.risk-setting-group h5 {
+    margin-bottom: 1rem;
+    color: var(--bs-info);
+    font-weight: 600;
+}
+
+.risk-slider-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.risk-slider-container label {
+    flex: 0 0 30%;
+}
+
+.risk-slider-container .form-range {
+    flex: 1;
+}
+
+.risk-slider-container .value-display {
+    flex: 0 0 15%;
+    text-align: right;
+    font-weight: bold;
+}
+
+/* Risk Charts */
+.risk-chart-container {
+    height: 250px;
+    margin-bottom: 1.5rem;
+}
+
+/* Custom Switch */
+.position-sizing-form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.position-sizing-form-check .form-check-input {
+    width: 3rem;
+    height: 1.5rem;
+}
+
+.custom-range-slider {
+    display: flex;
+    flex-direction: column;
+}
+
+.custom-range-slider .range-values {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--bs-secondary);
+}
+
+/* Risk Status Indicators */
+.risk-status-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.risk-status-good {
+    background-color: var(--bs-success);
+}
+
+.risk-status-warning {
+    background-color: var(--bs-warning);
+}
+
+.risk-status-danger {
+    background-color: var(--bs-danger);
+}
+
+/* Risk Analytics */
+.risk-analytics-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.risk-analytics-card .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.risk-analytics-value {
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.risk-analytics-label {
+    color: var(--bs-secondary);
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* Advanced Settings */
+.risk-advanced-settings-table th {
+    font-weight: normal;
+    color: var(--bs-secondary);
+    width: 40%;
+}
+
+.risk-advanced-settings-table td {
+    width: 60%;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .risk-slider-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .risk-slider-container label {
+        flex: 0 0 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .risk-slider-container .value-display {
+        flex: 0 0 100%;
+        text-align: left;
+        margin-top: 0.5rem;
+    }
+}

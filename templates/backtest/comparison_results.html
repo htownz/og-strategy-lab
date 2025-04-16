@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Comparison Results{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .comparison-chart {
+        height: 400px;
+        width: 100%;
+    }
+    .table-sm td, .table-sm th {
+        padding: 0.5rem;
+    }
+    .winner {
+        background-color: rgba(25, 135, 84, 0.1);
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.compare_strategies') }}">Compare Strategies</a></li>
+            <li class="breadcrumb-item active">Comparison Results</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Strategy Comparison Results</h1>
+        <div class="btn-group">
+            <a href="{{ url_for('backtest.compare_strategies') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </a>
+            <a href="{{ url_for('backtest.compare_strategies') }}" class="btn btn-primary">
+                <i class="bi bi-bar-chart-fill me-1"></i> New Comparison
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Comparison Parameters</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Strategies</dt>
+                        <dd class="col-sm-7">{{ strategies|length }} strategies compared</dd>
+                    </dl>
+                </div>
+                <div class="col-md-4">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Timeframe</dt>
+                        <dd class="col-sm-7">{{ results.timeframe }}</dd>
+                        
+                        <dt class="col-sm-5">Date Range</dt>
+                        <dd class="col-sm-7">
+                            {{ results.start_date }} to {{ results.end_date }}
+                        </dd>
+                    </dl>
+                </div>
+                <div class="col-md-4">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Symbols</dt>
+                        <dd class="col-sm-7">
+                            {% if results.symbols|length > 3 %}
+                                {{ results.symbols[:3]|join(', ') }} + {{ results.symbols[3:]|length }} more
+                            {% else %}
+                                {{ results.symbols|join(', ') }}
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Charts -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Win Rate Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <div class="comparison-chart" id="winRateChart"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Profit Factor Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <div class="comparison-chart" id="profitFactorChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Max Drawdown Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <div class="comparison-chart" id="maxDrawdownChart"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Sharpe Ratio Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <div class="comparison-chart" id="sharpeRatioChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Performance Metrics Comparison</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Strategy</th>
+                            <th>Total Signals</th>
+                            <th>Total Trades</th>
+                            <th>Win Rate</th>
+                            <th>Profit Factor</th>
+                            <th>Max Drawdown</th>
+                            <th>Sharpe Ratio</th>
+                            <th>Avg Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if results.strategies %}
+                            {% for strategy in results.strategies %}
+                                <tr>
+                                    <td>{{ strategy.strategy_name }}</td>
+                                    <td>{{ strategy.summary.total_signals }}</td>
+                                    <td>{{ strategy.summary.total_trades }}</td>
+                                    <td class="{% if loop.index == 1 and results.comparison.by_win_rate[0].id == strategy.strategy_id %}winner{% endif %}">
+                                        {{ '%.1f%%'|format(strategy.performance.win_rate * 100) }}
+                                    </td>
+                                    <td class="{% if loop.index == 1 and results.comparison.by_profit_factor[0].id == strategy.strategy_id %}winner{% endif %}">
+                                        {{ '%.2f'|format(strategy.performance.profit_factor) }}
+                                    </td>
+                                    <td class="{% if loop.index == 1 and results.comparison.by_max_drawdown|reverse|first.id == strategy.strategy_id %}winner{% endif %}">
+                                        {{ '%.1f%%'|format(strategy.performance.max_drawdown * 100) }}
+                                    </td>
+                                    <td class="{% if loop.index == 1 and results.comparison.by_sharpe_ratio[0].id == strategy.strategy_id %}winner{% endif %}">
+                                        {{ '%.2f'|format(strategy.performance.sharpe_ratio) }}
+                                    </td>
+                                    <td>
+                                        {{ '%.2f'|format(strategy.performance.avg_profit) }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center">No comparison results available.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rankings -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Strategy Rankings by Profit Factor</h5>
+                </div>
+                <div class="card-body">
+                    {% if results.comparison.by_profit_factor %}
+                        <ol class="list-group list-group-numbered">
+                            {% for item in results.comparison.by_profit_factor %}
+                                <li class="list-group-item d-flex justify-content-between align-items-start {% if loop.first %}list-group-item-success{% endif %}">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">{{ item.name }}</div>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">{{ '%.2f'|format(item.value) }}</span>
+                                </li>
+                            {% endfor %}
+                        </ol>
+                    {% else %}
+                        <p class="text-muted mb-0">No ranking data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Strategy Rankings by Win Rate</h5>
+                </div>
+                <div class="card-body">
+                    {% if results.comparison.by_win_rate %}
+                        <ol class="list-group list-group-numbered">
+                            {% for item in results.comparison.by_win_rate %}
+                                <li class="list-group-item d-flex justify-content-between align-items-start {% if loop.first %}list-group-item-success{% endif %}">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">{{ item.name }}</div>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">{{ '%.1f%%'|format(item.value * 100) }}</span>
+                                </li>
+                            {% endfor %}
+                        </ol>
+                    {% else %}
+                        <p class="text-muted mb-0">No ranking data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Top Performing Strategy</h5>
+        </div>
+        <div class="card-body">
+            {% if results.strategies %}
+                {% set top_strategy = None %}
+                {% set top_score = 0 %}
+                
+                {% for strategy in results.strategies %}
+                    {% set score = 0 %}
+                    {% for item in results.comparison.by_profit_factor %}
+                        {% if item.id == strategy.strategy_id %}
+                            {% set score = score + (results.comparison.by_profit_factor|length - loop.index0) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% for item in results.comparison.by_win_rate %}
+                        {% if item.id == strategy.strategy_id %}
+                            {% set score = score + (results.comparison.by_win_rate|length - loop.index0) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% for item in results.comparison.by_sharpe_ratio %}
+                        {% if item.id == strategy.strategy_id %}
+                            {% set score = score + (results.comparison.by_sharpe_ratio|length - loop.index0) %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if score > top_score %}
+                        {% set top_score = score %}
+                        {% set top_strategy = strategy %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if top_strategy %}
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">{{ top_strategy.strategy_name }} is the top performer!</h4>
+                        <p>
+                            Based on overall rankings across win rate, profit factor, and risk-adjusted metrics,
+                            <strong>{{ top_strategy.strategy_name }}</strong> performed the best in this comparison.
+                        </p>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Win Rate:</strong> {{ '%.1f%%'|format(top_strategy.performance.win_rate * 100) }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Profit Factor:</strong> {{ '%.2f'|format(top_strategy.performance.profit_factor) }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Max Drawdown:</strong> {{ '%.1f%%'|format(top_strategy.performance.max_drawdown * 100) }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Sharpe Ratio:</strong> {{ '%.2f'|format(top_strategy.performance.sharpe_ratio) }}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <p class="text-muted mb-0">No comparison results available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+        <a href="{{ url_for('backtest.compare_strategies') }}" class="btn btn-primary">
+            <i class="bi bi-bar-chart-fill me-1"></i> New Comparison
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const results = {{ results|tojson }};
+        
+        if (results && results.strategies && results.strategies.length > 0) {
+            const strategyNames = results.strategies.map(s => s.strategy_name);
+            const colors = [
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(153, 102, 255, 0.7)',
+                'rgba(255, 159, 64, 0.7)'
+            ];
+            
+            // Win Rate Chart
+            const winRateCtx = document.getElementById('winRateChart').getContext('2d');
+            new Chart(winRateCtx, {
+                type: 'bar',
+                data: {
+                    labels: strategyNames,
+                    datasets: [{
+                        label: 'Win Rate (%)',
+                        data: results.strategies.map(s => s.performance.win_rate * 100),
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Win Rate: ${context.raw.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Win Rate (%)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Profit Factor Chart
+            const profitFactorCtx = document.getElementById('profitFactorChart').getContext('2d');
+            new Chart(profitFactorCtx, {
+                type: 'bar',
+                data: {
+                    labels: strategyNames,
+                    datasets: [{
+                        label: 'Profit Factor',
+                        data: results.strategies.map(s => s.performance.profit_factor),
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Profit Factor: ${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Profit Factor'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Max Drawdown Chart
+            const maxDrawdownCtx = document.getElementById('maxDrawdownChart').getContext('2d');
+            new Chart(maxDrawdownCtx, {
+                type: 'bar',
+                data: {
+                    labels: strategyNames,
+                    datasets: [{
+                        label: 'Max Drawdown (%)',
+                        data: results.strategies.map(s => s.performance.max_drawdown * 100),
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Max Drawdown: ${context.raw.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Max Drawdown (%)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Sharpe Ratio Chart
+            const sharpeRatioCtx = document.getElementById('sharpeRatioChart').getContext('2d');
+            new Chart(sharpeRatioCtx, {
+                type: 'bar',
+                data: {
+                    labels: strategyNames,
+                    datasets: [{
+                        label: 'Sharpe Ratio',
+                        data: results.strategies.map(s => s.performance.sharpe_ratio),
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Sharpe Ratio: ${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Sharpe Ratio'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

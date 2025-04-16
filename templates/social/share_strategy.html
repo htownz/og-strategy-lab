@@ -1,0 +1,274 @@
+{% extends "social/share.html" %}
+
+{% block share_title %}
+<i class="fas fa-sitemap me-2 text-success"></i> Share Your Trading Strategy
+{% endblock %}
+
+{% block share_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Share your trading strategy approach on social media platforms
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Selection -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label for="strategy-select" class="form-label">Choose Strategy</label>
+        <select class="form-select" id="strategy-select">
+            <option value="1" selected>OG Strategy</option>
+            {% for strategy in strategies %}
+            {% if strategy.id != 1 %}
+            <option value="{{ strategy.id }}">{{ strategy.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Strategy Preview -->
+<div id="strategy-preview" class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-dark">
+            <div class="card-header">
+                <h5 class="mb-0">Strategy Preview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <h5 id="preview-strategy-title" class="mb-3">OG Strategy</h5>
+                        <div class="mb-3">
+                            <label class="text-muted mb-2">Description</label>
+                            <p id="preview-strategy-description" class="mb-0">
+                                The OG Strategy combines EMA Cloud, Order Blocks, and Fair Value Gaps for high-probability trading setups. It excels at identifying key reversal points in the market.
+                            </p>
+                        </div>
+                        
+                        <div class="row g-4">
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Win Rate</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-bullseye me-2 text-success"></i>
+                                        <span id="preview-win-rate" class="fs-4 fw-bold">62.5%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Timeframes</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-clock me-2 text-info"></i>
+                                        <span id="preview-timeframes" class="fs-5">1H, 4H, 1D</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="text-center">
+                            <div id="strategy-diagram" class="p-4 d-flex justify-content-center align-items-center" style="height: 200px;">
+                                <div class="d-flex flex-column align-items-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-chart-line fa-3x text-primary"></i>
+                                    </div>
+                                    <div class="d-flex">
+                                        <div class="p-2 border border-success rounded mx-2 text-center">
+                                            <i class="fas fa-cloud-bolt text-success"></i>
+                                            <div class="small mt-1">EMA Cloud</div>
+                                        </div>
+                                        <div class="p-2 border border-info rounded mx-2 text-center">
+                                            <i class="fas fa-square text-info"></i>
+                                            <div class="small mt-1">Order Blocks</div>
+                                        </div>
+                                        <div class="p-2 border border-warning rounded mx-2 text-center">
+                                            <i class="fas fa-arrows-up-down text-warning"></i>
+                                            <div class="small mt-1">FVG</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Sharing Options -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Customize Your Share</h6>
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-description" checked>
+                    <label class="form-check-label" for="include-description">
+                        Include Description
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-win-rate" checked>
+                    <label class="form-check-label" for="include-win-rate">
+                        Include Win Rate
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-diagram" checked>
+                    <label class="form-check-label" for="include-diagram">
+                        Include Strategy Diagram
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id="include-hashtags" checked>
+                    <label class="form-check-label" for="include-hashtags">
+                        Include Hashtags
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Social Sharing Options -->
+<div id="sharing-options" class="row mb-4">
+    <div class="col-md-12">
+        <h5 class="mb-3">Share on:</h5>
+        <div class="d-flex gap-2 flex-wrap" id="platform-buttons">
+            <!-- Buttons will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Preview Button -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="text-end">
+            <button id="preview-share" class="btn btn-primary" data-content-type="strategy" data-content-id="1">
+                <i class="fas fa-eye me-2"></i> Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="sharePreviewModal" tabindex="-1" aria-labelledby="sharePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sharePreviewModalLabel">Share Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Title:</strong>
+                    <p id="preview-title" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <strong>Text:</strong>
+                    <p id="preview-text" class="mb-0"></p>
+                </div>
+                <div id="preview-image-container" class="mb-3 d-none">
+                    <strong>Image:</strong>
+                    <div class="mt-2">
+                        <img id="preview-image" class="img-fluid border rounded" alt="Preview image">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const strategySelect = document.getElementById('strategy-select');
+    const platformButtons = document.getElementById('platform-buttons');
+    const previewBtn = document.getElementById('preview-share');
+    
+    // Load strategy data and update sharing options
+    function loadStrategyData(strategyId) {
+        // Fetch strategy data
+        fetch(`/social/api/strategy/${strategyId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Update preview
+            document.getElementById('preview-strategy-title').textContent = data.name;
+            document.getElementById('preview-strategy-description').textContent = data.description;
+            document.getElementById('preview-win-rate').textContent = `${data.win_rate}%`;
+            document.getElementById('preview-timeframes').textContent = data.timeframes || 'All timeframes';
+            
+            // Update preview button
+            previewBtn.setAttribute('data-content-id', data.id);
+            
+            // Get sharing links
+            fetch(`/social/api/share/strategy/${data.id}`)
+            .then(response => response.json())
+            .then(shareData => {
+                // Clear previous buttons
+                platformButtons.innerHTML = '';
+                
+                // Add button for each platform
+                for (const [platform, data] of Object.entries(shareData.links)) {
+                    const btn = document.createElement('a');
+                    btn.href = data.url;
+                    btn.classList.add('btn', 'social-share-btn');
+                    btn.style.backgroundColor = data.color;
+                    btn.style.color = '#ffffff';
+                    btn.setAttribute('data-platform', platform);
+                    btn.setAttribute('data-content-type', 'strategy');
+                    btn.setAttribute('data-content-id', previewBtn.getAttribute('data-content-id'));
+                    btn.innerHTML = `<i class="${data.icon} me-2"></i> ${data.name}`;
+                    platformButtons.appendChild(btn);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching sharing links:', error);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching strategy data:', error);
+        });
+    }
+    
+    // Initialize with default strategy
+    loadStrategyData(1);
+    
+    // Handle strategy changes
+    if (strategySelect) {
+        strategySelect.addEventListener('change', function() {
+            const strategyId = this.value;
+            loadStrategyData(strategyId);
+        });
+    }
+    
+    // Handle checkbox changes for customization
+    const checkboxes = [
+        document.getElementById('include-description'),
+        document.getElementById('include-win-rate'),
+        document.getElementById('include-diagram'),
+        document.getElementById('include-hashtags')
+    ];
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                // In a real implementation, this would update the preview
+                // and potentially the sharing links
+                console.log(`${this.id} changed to ${this.checked}`);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

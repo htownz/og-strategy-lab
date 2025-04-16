@@ -1,0 +1,329 @@
+{% extends "social/share.html" %}
+
+{% block share_title %}
+<i class="fas fa-chart-line me-2 text-info"></i> Share Trading Performance
+{% endblock %}
+
+{% block share_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Share your trading performance metrics on social media platforms
+        </div>
+    </div>
+</div>
+
+<!-- Performance Period Selection -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label for="period-select" class="form-label">Performance Period</label>
+        <select class="form-select" id="period-select">
+            <option value="7" selected>Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+            <option value="all">All time</option>
+        </select>
+    </div>
+</div>
+
+<!-- Performance Preview -->
+<div id="performance-preview" class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-dark">
+            <div class="card-header">
+                <h5 class="mb-0">Performance Preview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <h5 id="preview-performance-title" class="mb-3">Trading Performance</h5>
+                        
+                        <div class="row g-4 mb-3">
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Win Rate</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-bullseye me-2 text-success"></i>
+                                        <span id="preview-win-rate" class="fs-4 fw-bold">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Total P&L</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-money-bill-trend-up me-2 text-info"></i>
+                                        <span id="preview-total-pl" class="fs-4 fw-bold">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-4">
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Total Trades</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-chart-line me-2 text-primary"></i>
+                                        <span id="preview-total-trades" class="fs-4 fw-bold">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 rounded bg-opacity-25 bg-secondary">
+                                    <div class="text-muted small">Avg. P&L per Trade</div>
+                                    <div class="d-flex align-items-center mt-2">
+                                        <i class="fas fa-calculator me-2 text-warning"></i>
+                                        <span id="preview-avg-pl" class="fs-4 fw-bold">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="text-center">
+                            <div id="performance-chart-container" class="mb-3" style="height: 200px;">
+                                <canvas id="performance-chart"></canvas>
+                            </div>
+                            <p id="preview-period" class="text-muted">Last 7 days</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include/Exclude Options -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Customize Your Share</h6>
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-win-rate" checked>
+                    <label class="form-check-label" for="include-win-rate">
+                        Include Win Rate
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-pl" checked>
+                    <label class="form-check-label" for="include-pl">
+                        Include Profit/Loss
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="" id="include-trade-count" checked>
+                    <label class="form-check-label" for="include-trade-count">
+                        Include Trade Count
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id="include-chart" checked>
+                    <label class="form-check-label" for="include-chart">
+                        Include Performance Chart
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Social Sharing Options -->
+<div id="sharing-options" class="row mb-4">
+    <div class="col-md-12">
+        <h5 class="mb-3">Share on:</h5>
+        <div class="d-flex gap-2 flex-wrap" id="platform-buttons">
+            <!-- Buttons will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Preview Button -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="text-end">
+            <button id="preview-share" class="btn btn-primary" data-content-type="performance" data-content-id="1">
+                <i class="fas fa-eye me-2"></i> Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="sharePreviewModal" tabindex="-1" aria-labelledby="sharePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sharePreviewModalLabel">Share Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Title:</strong>
+                    <p id="preview-title" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <strong>Text:</strong>
+                    <p id="preview-text" class="mb-0"></p>
+                </div>
+                <div id="preview-image-container" class="mb-3 d-none">
+                    <strong>Image:</strong>
+                    <div class="mt-2">
+                        <img id="preview-image" class="img-fluid border rounded" alt="Preview image">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodSelect = document.getElementById('period-select');
+    const platformButtons = document.getElementById('platform-buttons');
+    const previewBtn = document.getElementById('preview-share');
+    let performanceChart = null;
+    
+    // Initialize chart
+    const ctx = document.getElementById('performance-chart').getContext('2d');
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+            datasets: [{
+                label: 'Cumulative P&L',
+                data: [0, 0, 0, 0, 0, 0, 0],
+                borderColor: '#36a2eb',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Load performance data and update sharing options
+    function loadPerformanceData(periodDays) {
+        // Fetch performance data
+        fetch(`/social/api/performance/${periodDays}`)
+        .then(response => response.json())
+        .then(data => {
+            // Update preview
+            document.getElementById('preview-win-rate').textContent = `${data.win_rate}%`;
+            document.getElementById('preview-total-pl').textContent = data.profit_loss;
+            document.getElementById('preview-total-trades').textContent = data.num_trades;
+            document.getElementById('preview-avg-pl').textContent = data.avg_profit_loss;
+            
+            // Update period text
+            let periodText = '';
+            if (periodDays === 'all') {
+                periodText = 'All time';
+            } else {
+                periodText = `Last ${periodDays} days`;
+            }
+            document.getElementById('preview-period').textContent = periodText;
+            
+            // Update chart if we have daily data
+            if (data.daily_data && performanceChart) {
+                const labels = data.daily_data.map(d => d.date);
+                const values = data.daily_data.map(d => d.cumulative_pl);
+                
+                performanceChart.data.labels = labels;
+                performanceChart.data.datasets[0].data = values;
+                performanceChart.update();
+            }
+            
+            // Update preview button
+            previewBtn.setAttribute('data-content-id', data.id);
+            
+            // Get sharing links
+            fetch(`/social/api/share/performance/${data.id}`)
+            .then(response => response.json())
+            .then(shareData => {
+                // Clear previous buttons
+                platformButtons.innerHTML = '';
+                
+                // Add button for each platform
+                for (const [platform, data] of Object.entries(shareData.links)) {
+                    const btn = document.createElement('a');
+                    btn.href = data.url;
+                    btn.classList.add('btn', 'social-share-btn');
+                    btn.style.backgroundColor = data.color;
+                    btn.style.color = '#ffffff';
+                    btn.setAttribute('data-platform', platform);
+                    btn.setAttribute('data-content-type', 'performance');
+                    btn.setAttribute('data-content-id', previewBtn.getAttribute('data-content-id'));
+                    btn.innerHTML = `<i class="${data.icon} me-2"></i> ${data.name}`;
+                    platformButtons.appendChild(btn);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching sharing links:', error);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching performance data:', error);
+        });
+    }
+    
+    // Initialize with default period
+    loadPerformanceData(7);
+    
+    // Handle period changes
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            const periodDays = this.value;
+            loadPerformanceData(periodDays);
+        });
+    }
+    
+    // Handle checkbox changes for customization
+    const checkboxes = [
+        document.getElementById('include-win-rate'),
+        document.getElementById('include-pl'),
+        document.getElementById('include-trade-count'),
+        document.getElementById('include-chart')
+    ];
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                // In a real implementation, this would update the preview
+                // and potentially the sharing links
+                console.log(`${this.id} changed to ${this.checked}`);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

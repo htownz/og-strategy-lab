@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Strategies{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('backtest.index') }}">Backtest Dashboard</a></li>
+            <li class="breadcrumb-item active">Compare Strategies</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Compare Strategy Performance</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('backtest.compare_strategies') }}">
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <i class="bi bi-info-circle fs-4 me-3 align-self-center"></i>
+                        <div>
+                            <h5 class="mb-2">About Strategy Comparison</h5>
+                            <p class="mb-0">
+                                Select two or more strategies to compare their performance against the same historical data.
+                                This will run a backtest for each strategy with identical settings, allowing you to directly
+                                compare metrics like win rate, profit factor, and drawdown.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Select Strategies to Compare</label>
+                    <div class="row">
+                        {% for strategy in strategies %}
+                            <div class="col-md-6 col-lg-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="strategy_ids" 
+                                           id="strategy_{{ strategy.id }}" value="{{ strategy.id }}">
+                                    <label class="form-check-label" for="strategy_{{ strategy.id }}">
+                                        {{ strategy.name }} 
+                                        {% if strategy.active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="timeframe" class="form-label">Timeframe</label>
+                        <select name="timeframe" id="timeframe" class="form-select">
+                            <option value="5m">5 Minute</option>
+                            <option value="15m">15 Minute</option>
+                            <option value="1h">1 Hour</option>
+                            <option value="4h">4 Hour</option>
+                            <option value="1D" selected>Daily</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="symbols" class="form-label">Symbols (comma-separated)</label>
+                        <input type="text" class="form-control" id="symbols" name="symbols" 
+                               value="{{ default_symbols }}" placeholder="AAPL,MSFT,AMZN,QQQ" required>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ start_date }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ end_date }}" required>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('backtest.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-bar-chart-fill me-1"></i> Compare Strategies
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Validate form before submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            // Check if at least two strategies are selected
+            const selectedStrategies = document.querySelectorAll('input[name="strategy_ids"]:checked');
+            if (selectedStrategies.length < 2) {
+                e.preventDefault();
+                alert('Please select at least two strategies to compare.');
+                return;
+            }
+            
+            // Validate date range
+            const startDate = new Date(document.getElementById('start_date').value);
+            const endDate = new Date(document.getElementById('end_date').value);
+            
+            if (startDate > endDate) {
+                e.preventDefault();
+                alert('Start date cannot be after end date.');
+                return;
+            }
+            
+            // Validate symbols
+            const symbols = document.getElementById('symbols').value.trim();
+            if (!symbols) {
+                e.preventDefault();
+                alert('Please enter at least one symbol to test.');
+                return;
+            }
+        });
+        
+        // Clean up symbols input
+        document.getElementById('symbols').addEventListener('blur', function() {
+            const symbols = this.value.split(',').map(s => s.trim()).filter(s => s);
+            this.value = symbols.join(',');
+        });
+    });
+</script>
+{% endblock %}

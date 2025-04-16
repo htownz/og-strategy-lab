@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}Signals - OG Signal Bot{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">Signal History</h1>
+            <p class="text-secondary">View and analyze past trading signals</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                <i class="fa fa-filter me-2"></i> Filter Options
+            </button>
+            <a href="{{ url_for('signals') }}" class="btn btn-outline-secondary">
+                <i class="fa fa-rotate me-2"></i> Reset
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filter options -->
+    <div class="collapse mb-4" id="filterCollapse">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Filter Signals</h5>
+                <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#filterCollapse"></button>
+            </div>
+            <div class="card-body">
+                <form class="row g-3" method="get">
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="symbolFilter" name="symbol" value="{{ request.args.get('symbol', '') }}" placeholder="Symbol">
+                            <label for="symbolFilter">Symbol</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <select class="form-select" id="directionFilter" name="direction">
+                                <option value="" {% if not request.args.get('direction') %}selected{% endif %}>All Directions</option>
+                                <option value="UP" {% if request.args.get('direction') == 'UP' %}selected{% endif %}>LONG/CALL</option>
+                                <option value="DOWN" {% if request.args.get('direction') == 'DOWN' %}selected{% endif %}>SHORT/PUT</option>
+                            </select>
+                            <label for="directionFilter">Direction</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <select class="form-select" id="dateFilter" name="daterange">
+                                <option value="" {% if not request.args.get('daterange') %}selected{% endif %}>All Time</option>
+                                <option value="today" {% if request.args.get('daterange') == 'today' %}selected{% endif %}>Today</option>
+                                <option value="yesterday" {% if request.args.get('daterange') == 'yesterday' %}selected{% endif %}>Yesterday</option>
+                                <option value="week" {% if request.args.get('daterange') == 'week' %}selected{% endif %}>This Week</option>
+                                <option value="month" {% if request.args.get('daterange') == 'month' %}selected{% endif %}>This Month</option>
+                            </select>
+                            <label for="dateFilter">Date Range</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fa fa-search me-2"></i> Apply Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card up">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value">{{ signals_stats.get('total', 0) }}</div>
+                        <div class="stat-label">Total Signals</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa fa-bolt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card up">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value">{{ signals_stats.get('executed', 0) }}</div>
+                        <div class="stat-label">Executed Signals</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card up">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value">{{ signals_stats.get('longs', 0) }}</div>
+                        <div class="stat-label">Long Signals</div>
+                    </div>
+                    <div class="stat-icon text-success">
+                        <i class="fa fa-arrow-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card down">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value">{{ signals_stats.get('shorts', 0) }}</div>
+                        <div class="stat-label">Short Signals</div>
+                    </div>
+                    <div class="stat-icon text-danger">
+                        <i class="fa fa-arrow-down"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signals Table -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Signal History</h5>
+                <div>
+                    {% if signals.items and signals.total %}
+                        <span class="badge bg-secondary">{{ signals.total }} signals found</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if signals.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Symbol</th>
+                                <th>Direction</th>
+                                <th>Confidence</th>
+                                <th>Price at Signal</th>
+                                <th>Timeframe</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for signal in signals.items %}
+                            <tr class="signal-row" data-signal-id="{{ signal.id }}">
+                                <td>{{ signal.timestamp|format_timestamp }}</td>
+                                <td><strong>{{ signal.symbol }}</strong></td>
+                                <td>
+                                    <span class="badge {% if signal.direction == 'UP' %}bg-success{% else %}bg-danger{% endif %} py-2 px-3">
+                                        {% if signal.direction == 'UP' %}
+                                            <i class="fa fa-arrow-up me-1"></i> LONG
+                                        {% else %}
+                                            <i class="fa fa-arrow-down me-1"></i> SHORT
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                            <div class="progress-bar bg-{{ 'success' if signal.direction == 'UP' else 'danger' }}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ signal.confidence * 100 }}%" 
+                                                 aria-valuenow="{{ signal.confidence * 100 }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <span>{{ (signal.confidence * 100)|int }}%</span>
+                                    </div>
+                                </td>
+                                <td>${{ "%.2f"|format(signal.price_at_signal) }}</td>
+                                <td>
+                                    <span class="badge bg-dark">
+                                        {{ signal.timeframe if signal.timeframe else '1H' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if signal.executed %}
+                                        <span class="badge bg-success py-2 px-3">
+                                            <i class="fa fa-check me-1"></i> Executed
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary py-2 px-3">
+                                            <i class="fa fa-clock me-1"></i> Pending
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#signalModal{{ signal.id }}">
+                                            <i class="fa fa-eye"></i>
+                                        </button>
+                                        {% if not signal.executed %}
+                                        <button type="button" class="btn btn-sm btn-outline-success execute-signal-btn" data-signal-id="{{ signal.id }}">
+                                            <i class="fa fa-play"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Signal Details Modal -->
+                                    <div class="modal fade" id="signalModal{{ signal.id }}" tabindex="-1" aria-labelledby="signalModalLabel{{ signal.id }}" aria-hidden="true">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="signalModalLabel{{ signal.id }}">
+                                                        <i class="fa fa-bolt text-warning me-2"></i>
+                                                        Signal Details: {{ signal.symbol }}
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Signal Information</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <table class="table table-sm">
+                                                                        <tr>
+                                                                            <th>Symbol:</th>
+                                                                            <td>{{ signal.symbol }}</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th>Direction:</th>
+                                                                            <td class="{% if signal.direction == 'UP' %}text-success{% else %}text-danger{% endif %}">
+                                                                                {% if signal.direction == 'UP' %}
+                                                                                    <i class="fa fa-arrow-up me-1"></i> LONG
+                                                                                {% else %}
+                                                                                    <i class="fa fa-arrow-down me-1"></i> SHORT
+                                                                                {% endif %}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th>Confidence:</th>
+                                                                            <td>{{ (signal.confidence * 100)|int }}%</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th>Price at Signal:</th>
+                                                                            <td>${{ "%.2f"|format(signal.price_at_signal) }}</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th>Timestamp:</th>
+                                                                            <td>{{ signal.timestamp|format_timestamp }}</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th>Status:</th>
+                                                                            <td>{{ "Executed" if signal.executed else "Pending" }}</td>
+                                                                        </tr>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="col-md-6">
+                                                            {% if signal.indicators %}
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Technical Indicators</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div class="table-responsive">
+                                                                        <table class="table table-sm">
+                                                                            <tbody>
+                                                                                {% for key, value in signal.indicators.items() %}
+                                                                                <tr>
+                                                                                    <th>{{ key }}:</th>
+                                                                                    <td>{{ value }}</td>
+                                                                                </tr>
+                                                                                {% endfor %}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+                                                            
+                                                            {% if signal.trades %}
+                                                            <div class="card">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Related Trades</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div class="table-responsive">
+                                                                        <table class="table table-sm">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>Direction</th>
+                                                                                    <th>Quantity</th>
+                                                                                    <th>Time</th>
+                                                                                    <th>Status</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {% for trade in signal.trades %}
+                                                                                <tr>
+                                                                                    <td>{{ trade.direction }}</td>
+                                                                                    <td>{{ trade.quantity }}</td>
+                                                                                    <td>{{ trade.timestamp|format_timestamp }}</td>
+                                                                                    <td>
+                                                                                        <span class="badge bg-{{ 'success' if trade.status == 'FILLED' else 'warning' if trade.status == 'SUBMITTED' else 'danger' if trade.status == 'REJECTED' else 'secondary' }}">
+                                                                                            {{ trade.status }}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                {% endfor %}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    {% if not signal.executed %}
+                                                    <button type="button" class="btn btn-success execute-signal-btn" data-signal-id="{{ signal.id }}">
+                                                        <i class="fa fa-play me-2"></i> Execute Signal
+                                                    </button>
+                                                    {% endif %}
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if signals.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('signals', page=signals.prev_num, **request.args) }}">
+                                    <i class="fa fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                                    <i class="fa fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in signals.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                {% if page_num == signals.page %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="#">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('signals', page=page_num, **request.args) }}">{{ page_num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if signals.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('signals', page=signals.next_num, **request.args) }}">
+                                    Next <i class="fa fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                                    Next <i class="fa fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% else %}
+                <div class="d-flex flex-column align-items-center py-5">
+                    <div class="text-center mb-4">
+                        <i class="fa fa-search fa-4x text-secondary mb-3"></i>
+                        <h4>No signals found</h4>
+                        <p class="text-secondary">No signals match your current filter criteria.</p>
+                    </div>
+                    <a href="{{ url_for('signals') }}" class="btn btn-primary">
+                        <i class="fa fa-rotate me-2"></i> Reset Filters
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Execute signal buttons
+    const executeButtons = document.querySelectorAll('.execute-signal-btn');
+    executeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const signalId = this.getAttribute('data-signal-id');
+            
+            // Disable button and show loading state
+            this.disabled = true;
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            
+            // Call the API to execute the signal
+            fetch('/api/execute-signal/' + signalId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const toastContainer = document.createElement('div');
+                    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                    toastContainer.innerHTML = `
+                        <div class="toast bg-success text-white" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="toast-header bg-success text-white">
+                                <i class="fa fa-check-circle me-2"></i>
+                                <strong class="me-auto">Success</strong>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                            <div class="toast-body">
+                                Signal execution initiated successfully.
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(toastContainer);
+                    
+                    const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+                    toast.show();
+                    
+                    // Reload the page after a short delay
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    // Show error message
+                    alert('Error executing signal: ' + data.message);
+                    
+                    // Restore button
+                    this.disabled = false;
+                    this.innerHTML = originalHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error executing signal. See console for details.');
+                
+                // Restore button
+                this.disabled = false;
+                this.innerHTML = originalHtml;
+            });
+        });
+    });
+    
+    // Auto-open filter if there are any active filters
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('symbol') || urlParams.has('direction') || urlParams.has('daterange')) {
+        // Open the filter collapse
+        const filterCollapse = new bootstrap.Collapse(document.getElementById('filterCollapse'), {
+            toggle: true
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

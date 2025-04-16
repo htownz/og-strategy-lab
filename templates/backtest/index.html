@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Backtesting Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Strategy Backtesting Dashboard</h1>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Run Backtest</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('backtest.run_backtest') }}" method="post">
+                        <div class="mb-3">
+                            <label for="strategy_id" class="form-label">Strategy</label>
+                            <select class="form-select" id="strategy_id" name="strategy_id" required>
+                                <option value="">Select a strategy</option>
+                                {% for strategy in strategies %}
+                                <option value="{{ strategy.id }}">{{ strategy.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" 
+                                    value="{{ (today - timedelta(days=30)).strftime('%Y-%m-%d') if today else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" 
+                                    value="{{ today.strftime('%Y-%m-%d') if today else '' }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="symbols" class="form-label">Symbols (comma-separated)</label>
+                            <input type="text" class="form-control" id="symbols" name="symbols" 
+                                placeholder="AAPL,MSFT,NVDA,AMD" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="timeframe" class="form-label">Timeframe</label>
+                            <select class="form-select" id="timeframe" name="timeframe" required>
+                                <option value="1m">1 Minute</option>
+                                <option value="5m">5 Minutes</option>
+                                <option value="15m">15 Minutes</option>
+                                <option value="30m">30 Minutes</option>
+                                <option value="1h" selected>1 Hour</option>
+                                <option value="4h">4 Hours</option>
+                                <option value="1d">Daily</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="optimize" name="optimize">
+                            <label class="form-check-label" for="optimize">Optimize Parameters</label>
+                        </div>
+                        
+                        <div class="optimization-fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="optimization_target" class="form-label">Optimization Target</label>
+                                <select class="form-select" id="optimization_target" name="optimization_target">
+                                    <option value="profit_factor">Profit Factor</option>
+                                    <option value="win_rate">Win Rate</option>
+                                    <option value="sharpe_ratio">Sharpe Ratio</option>
+                                    <option value="total_return">Total Return</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Parameters to Optimize</label>
+                                <div class="form-text mb-2">Select which parameters to include in optimization</div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="optimize_ema_fast" name="optimize_params" value="ema_fast">
+                                            <label class="form-check-label" for="optimize_ema_fast">EMA Fast Period</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="optimize_ema_slow" name="optimize_params" value="ema_slow">
+                                            <label class="form-check-label" for="optimize_ema_slow">EMA Slow Period</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="optimize_volume_threshold" name="optimize_params" value="volume_threshold">
+                                            <label class="form-check-label" for="optimize_volume_threshold">Volume Threshold</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="optimize_risk_reward" name="optimize_params" value="risk_reward">
+                                            <label class="form-check-label" for="optimize_risk_reward">Risk/Reward Ratio</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Run Backtest</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Recent Backtest Results</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_results %}
+                    <div class="list-group">
+                        {% for result in recent_results %}
+                        <a href="{{ url_for('backtest.view_result', result_id=result.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ result.strategy.name }}</h6>
+                                <small>{{ result.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <p class="mb-1">
+                                Symbols: {{ result.symbols }}<br>
+                                Win Rate: {{ "%.2f"|format(result.win_rate * 100) }}%<br>
+                                Profit Factor: {{ "%.2f"|format(result.profit_factor) }}
+                            </p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No recent backtests found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show/hide optimization fields based on checkbox
+    document.addEventListener('DOMContentLoaded', function() {
+        const optimizeCheckbox = document.getElementById('optimize');
+        const optimizationFields = document.querySelector('.optimization-fields');
+        
+        optimizeCheckbox.addEventListener('change', function() {
+            optimizationFields.style.display = this.checked ? 'block' : 'none';
+        });
+    });
+</script>
+{% endblock %}

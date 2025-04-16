@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Risk Management Dashboard{% endblock %}
+
+{% block head %}
+<style>
+    .feature-card {
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        display: block;
+        text-align: center;
+    }
+    
+    .risk-category-heading {
+        border-bottom: 2px solid var(--bs-primary);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Risk Management Dashboard</h1>
+    
+    <div class="row mb-5">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Risk Metrics Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">Portfolio Value</h6>
+                                <div class="h3" id="portfolio-value">$100,000</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <h6 class="text-muted">Value at Risk (95%)</h6>
+                                    <span id="var-value">$3,200</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-warning" style="width: 3.2%" id="var-bar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <h6 class="text-muted">Expected Shortfall</h6>
+                                    <span id="es-value">$4,100</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-danger" style="width: 4.1%" id="es-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">Sharpe Ratio</h6>
+                                <div class="h3" id="sharpe-ratio">1.82</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <h6 class="text-muted">Volatility</h6>
+                                    <span id="volatility-value">14.5%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: 14.5%" id="volatility-bar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <h6 class="text-muted">Max Drawdown</h6>
+                                    <span id="drawdown-value">8.3%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-danger" style="width: 8.3%" id="drawdown-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="risk-summary">Portfolio risk metrics are within acceptable ranges. Current market regime: Bull Market</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Risk Alerts</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="risk-alerts">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                <span>AAPL position exceeds 10% of portfolio</span>
+                            </div>
+                            <span class="badge bg-warning">Medium</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-info-circle text-info me-2"></i>
+                                <span>Tech sector exposure at 35%</span>
+                            </div>
+                            <span class="badge bg-info">Low</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <span>VaR within acceptable limits</span>
+                            </div>
+                            <span class="badge bg-success">Good</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="#" class="btn btn-sm btn-outline-primary">View All Alerts</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Risk Management Tools Section -->
+    <h2 class="risk-category-heading">Risk Management Tools</h2>
+    
+    <div class="row g-4 mb-5">
+        <!-- Real-Time Risk Indicators -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-tachometer-alt card-icon text-primary"></i>
+                    <h5 class="card-title">Real-Time Risk Indicators</h5>
+                    <p class="card-text">Monitor portfolio risk metrics, VaR, and drawdown in real-time</p>
+                    <a href="/risk/indicators" class="btn btn-primary">View Dashboard</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Position Sizing Calculator -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-calculator card-icon text-primary"></i>
+                    <h5 class="card-title">Position Size Calculator</h5>
+                    <p class="card-text">Calculate optimal position sizes based on risk parameters and Kelly criterion</p>
+                    <a href="/risk/position_sizing" class="btn btn-primary">Open Calculator</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Correlation Analysis -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-project-diagram card-icon text-primary"></i>
+                    <h5 class="card-title">Sector Correlation Analysis</h5>
+                    <p class="card-text">Analyze correlations between sectors for better portfolio diversification</p>
+                    <a href="/risk/correlations" class="btn btn-primary">View Correlations</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ML-Powered Tools Section -->
+    <h2 class="risk-category-heading">ML-Powered Tools</h2>
+    
+    <div class="row g-4">
+        <!-- ML Risk Forecasting -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line card-icon text-primary"></i>
+                    <h5 class="card-title">ML Risk Forecasting</h5>
+                    <p class="card-text">Machine learning-powered risk forecasting, volatility prediction and market regime detection</p>
+                    <a href="/risk/api/ml/dashboard" class="btn btn-primary">Open Forecasting</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trade Setup Evaluator -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-brain card-icon text-primary"></i>
+                    <h5 class="card-title">ML Trade Setup Evaluator</h5>
+                    <p class="card-text">Evaluate potential trade setups using machine learning models to predict success probability</p>
+                    <a href="/risk/api/ml/dashboard#trade-setup" class="btn btn-primary">Evaluate Setups</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Adaptive Risk Thresholds -->
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-sliders-h card-icon text-primary"></i>
+                    <h5 class="card-title">Adaptive Risk Thresholds</h5>
+                    <p class="card-text">Set dynamic risk thresholds that adapt to current market conditions</p>
+                    <a href="#" class="btn btn-outline-secondary">Coming Soon</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to load risk metrics from API
+    async function loadRiskMetrics() {
+        try {
+            const response = await fetch('/risk/api/portfolio_metrics');
+            if (!response.ok) {
+                throw new Error('Failed to fetch risk metrics');
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                updateRiskMetrics(data.data);
+            }
+        } catch (error) {
+            console.error('Error loading risk metrics:', error);
+        }
+    }
+    
+    // Function to update UI with risk metrics
+    function updateRiskMetrics(data) {
+        // In a real implementation, this would use actual data from the API
+        // For now, we'll keep the placeholder values
+        
+        // Uncomment this when the API endpoint is working:
+        /*
+        document.getElementById('portfolio-value').textContent = formatCurrency(data.portfolio_value);
+        document.getElementById('var-value').textContent = formatCurrency(data.var_95);
+        document.getElementById('es-value').textContent = formatCurrency(data.expected_shortfall);
+        document.getElementById('sharpe-ratio').textContent = data.sharpe_ratio.toFixed(2);
+        document.getElementById('volatility-value').textContent = (data.volatility * 100).toFixed(1) + '%';
+        document.getElementById('drawdown-value').textContent = (data.max_drawdown * 100).toFixed(1) + '%';
+        
+        // Update progress bars
+        const portfolioValue = data.portfolio_value;
+        document.getElementById('var-bar').style.width = ((data.var_95 / portfolioValue) * 100) + '%';
+        document.getElementById('es-bar').style.width = ((data.expected_shortfall / portfolioValue) * 100) + '%';
+        document.getElementById('volatility-bar').style.width = (data.volatility * 100) + '%';
+        document.getElementById('drawdown-bar').style.width = (data.max_drawdown * 100) + '%';
+        
+        // Update risk summary
+        document.getElementById('risk-summary').textContent = data.risk_summary;
+        
+        // Update risk alerts
+        updateRiskAlerts(data.alerts);
+        */
+    }
+    
+    // Function to update risk alerts
+    function updateRiskAlerts(alerts) {
+        if (!alerts || alerts.length === 0) return;
+        
+        const alertsList = document.getElementById('risk-alerts');
+        alertsList.innerHTML = '';
+        
+        alerts.forEach(alert => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            
+            const iconClass = getAlertIconClass(alert.severity);
+            
+            li.innerHTML = `
+                <div>
+                    <i class="${iconClass} me-2"></i>
+                    <span>${alert.message}</span>
+                </div>
+                <span class="badge ${getAlertBadgeClass(alert.severity)}">${alert.severity}</span>
+            `;
+            
+            alertsList.appendChild(li);
+        });
+    }
+    
+    // Helper function to get alert icon class based on severity
+    function getAlertIconClass(severity) {
+        switch (severity.toLowerCase()) {
+            case 'high':
+                return 'fas fa-exclamation-circle text-danger';
+            case 'medium':
+                return 'fas fa-exclamation-triangle text-warning';
+            case 'low':
+                return 'fas fa-info-circle text-info';
+            case 'good':
+                return 'fas fa-check-circle text-success';
+            default:
+                return 'fas fa-info-circle text-info';
+        }
+    }
+    
+    // Helper function to get alert badge class based on severity
+    function getAlertBadgeClass(severity) {
+        switch (severity.toLowerCase()) {
+            case 'high':
+                return 'bg-danger';
+            case 'medium':
+                return 'bg-warning';
+            case 'low':
+                return 'bg-info';
+            case 'good':
+                return 'bg-success';
+            default:
+                return 'bg-info';
+        }
+    }
+    
+    // Helper function to format currency
+    function formatCurrency(value) {
+        return '$' + value.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+    
+    // Load initial data
+    loadRiskMetrics();
+});
+</script>
+{% endblock %}

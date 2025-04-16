@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+
+{% block title %}SNAP Trade Analysis - OG Signal Bot{% endblock %}
+
+{% block styles %}
+<style>
+    .trade-card {
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        border-left: 5px solid var(--bs-primary);
+    }
+    
+    .trade-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .trade-bearish {
+        border-left-color: var(--bs-danger);
+    }
+    
+    .trade-bullish {
+        border-left-color: var(--bs-success);
+    }
+    
+    .confidence-indicator {
+        height: 10px;
+        border-radius: 5px;
+        background-color: var(--bs-secondary);
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        border-radius: 5px;
+        background-color: var(--bs-primary);
+        transition: width 0.5s ease-in-out;
+    }
+    
+    .key-level {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        padding: 5px;
+        border-radius: 5px;
+    }
+    
+    .key-level-entry {
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+    }
+    
+    .key-level-stop {
+        background-color: rgba(var(--bs-danger-rgb), 0.1);
+    }
+    
+    .key-level-target {
+        background-color: rgba(var(--bs-success-rgb), 0.1);
+    }
+    
+    .timeframe-badge {
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        margin-right: 5px;
+    }
+    
+    .timeframe-badge.bullish {
+        background-color: rgba(var(--bs-success-rgb), 0.2);
+        color: var(--bs-success);
+    }
+    
+    .timeframe-badge.bearish {
+        background-color: rgba(var(--bs-danger-rgb), 0.2);
+        color: var(--bs-danger);
+    }
+    
+    .signal-animation {
+        animation: signal-pulse 2s ease-in-out;
+    }
+    
+    @keyframes signal-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(var(--bs-primary-rgb), 0); }
+        100% { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0); }
+    }
+    
+    .strategy-summary {
+        background-color: rgba(var(--bs-light-rgb), 0.05);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    
+    /* Chart Container */
+    .chart-container {
+        height: 300px;
+        background-color: rgba(var(--bs-dark-rgb), 0.2);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">OG Strategy Signal - SNAP Trade Analysis</h2>
+                <div class="d-flex">
+                    <select id="strategySelect" class="form-select me-2" style="width: auto;">
+                        <option value="">Select Strategy...</option>
+                        <!-- Strategies will be populated via JavaScript -->
+                    </select>
+                    <button id="triggerExampleBtn" class="btn btn-primary">
+                        <i class="fas fa-bolt me-2"></i>Trigger SNAP Example
+                    </button>
+                </div>
+            </div>
+            <p class="text-muted">Real-time OG Strategy pattern match with technical analysis</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Left Column - Trade Card -->
+        <div class="col-lg-8 col-md-12 mb-4">
+            <div class="card border-0 shadow-sm h-100" id="tradeCard">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h3 class="card-title mb-0" id="tradeSymbol">SNAP</h3>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-danger me-2" id="tradeDirection">BEARISH</span>
+                                <span class="text-muted" id="tradePrice">$7.80</span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted mb-1">Confidence</div>
+                            <div class="d-flex align-items-center">
+                                <div class="confidence-indicator me-2" style="width: 150px;">
+                                    <div class="confidence-fill" id="confidenceFill" style="width: 85%;"></div>
+                                </div>
+                                <span id="confidenceValue">85%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Placeholder -->
+                    <div class="chart-container mb-4">
+                        <div class="text-center">
+                            <i class="fas fa-chart-line fa-3x mb-3 text-muted"></i>
+                            <p class="mb-0">Interactive chart would appear here in production</p>
+                        </div>
+                    </div>
+                    
+                    <h5 class="mb-3">Trade Setup: <span id="setupType">EMA + FVG + OB</span></h5>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Key Levels</h6>
+                            <div class="key-level key-level-entry">
+                                <span>Entry</span>
+                                <span id="entryLevel">$7.80</span>
+                            </div>
+                            <div class="key-level key-level-stop">
+                                <span>Stop</span>
+                                <span id="stopLevel">$8.00</span>
+                            </div>
+                            <div class="key-level key-level-target">
+                                <span>Target 1</span>
+                                <span id="target1Level">$7.65</span>
+                            </div>
+                            <div class="key-level key-level-target">
+                                <span>Target 2</span>
+                                <span id="target2Level">$7.50</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Contract Details</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Strike</span>
+                                <span id="strikePrice">$7.50</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Expiration</span>
+                                <span id="expirationDate">04/25/2025</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Type</span>
+                                <span id="contractType">PUT</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Trade ID</span>
+                                <span id="tradeId">SNAP-P-20250425-750</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Timeframes -->
+                    <h6 class="mb-3">Multiple Timeframe Analysis</h6>
+                    <div class="mb-4" id="timeframeContainer">
+                        <span class="timeframe-badge bearish">10m: Bearish</span>
+                        <span class="timeframe-badge bearish">45m: Bearish</span>
+                        <span class="timeframe-badge bearish">1h: Bearish</span>
+                        <span class="timeframe-badge bearish">3h: Bearish</span>
+                    </div>
+                    
+                    <!-- Technical Signals -->
+                    <h6 class="mb-3">Technical Signals</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6 col-lg-3 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <span>EMA Cloud</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <span>OB + FVG Alignment</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <span>Volume Confirmation</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <span>Price Action</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div class="strategy-summary">
+                        <h6 class="mb-3">OG Strategy Summary</h6>
+                        <p id="tradeSummary">
+                            Bearish market structure from $8.15 top. EMA clouds are turning red and angling down. 
+                            Rejected upper range at $8.15. Price back below all EMA clouds with strong red volume.
+                            Clear bearish channel since early April.
+                        </p>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small" id="signalTimestamp">Signal generated: 2025-04-15 17:30:00</span>
+                        <div>
+                            <button id="sendTelegramBtn" class="btn btn-sm btn-outline-primary me-2">
+                                <i class="fas fa-paper-plane me-1"></i>Send to Telegram
+                            </button>
+                            <button id="executePaperTradeBtn" class="btn btn-sm btn-outline-success me-2">
+                                <i class="fas fa-robot me-1"></i>Execute Paper Trade
+                            </button>
+                            <button id="executeLiveTradeBtn" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-bolt me-1"></i>Execute Live Trade
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column - Log & Alerts -->
+        <div class="col-lg-4 col-md-12 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Signal Activity Log</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush" id="signalLogContainer">
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">SNAP Match Detected</h6>
+                                <small class="text-muted">just now</small>
+                            </div>
+                            <p class="mb-1 small">OG Strategy pattern match with 85% confidence</p>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Alert Set: $7.75</h6>
+                                <small class="text-muted">1 min ago</small>
+                            </div>
+                            <p class="mb-1 small">Bearish momentum confirmation alert set</p>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Alert Set: $8.00</h6>
+                                <small class="text-muted">1 min ago</small>
+                            </div>
+                            <p class="mb-1 small">Stop-out alert set (invalidation level)</p>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Alert Set: $7.50</h6>
+                                <small class="text-muted">1 min ago</small>
+                            </div>
+                            <p class="mb-1 small">Target alert set</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button id="analyzeSimilarSetupsBtn" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-search me-1"></i>Analyze Similar Setups
+                        </button>
+                        <button id="settingsBtn" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-cog me-1"></i>Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Socket.IO connection
+    const socket = io();
+    
+    // Listen for OG match events
+    socket.on('og_match', function(data) {
+        console.log('Received OG match:', data);
+        updateTradeCard(data);
+        addSignalLogEntry(data);
+        animateTradeCard();
+    });
+    
+    // Load available strategies
+    function loadStrategies() {
+        fetch('/demo/get_strategies')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.strategies) {
+                    const strategySelect = document.getElementById('strategySelect');
+                    // Clear existing options except the first one
+                    while (strategySelect.options.length > 1) {
+                        strategySelect.remove(1);
+                    }
+                    
+                    // Add the strategies
+                    data.strategies.forEach(strategy => {
+                        const option = document.createElement('option');
+                        option.value = strategy.id;
+                        option.text = `${strategy.name} (${strategy.timeframe})`;
+                        strategySelect.appendChild(option);
+                    });
+                    
+                    // Select the first strategy by default if available
+                    if (data.strategies.length > 0) {
+                        strategySelect.selectedIndex = 1;
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading strategies:', error));
+    }
+    
+    // Add event listener for the trigger button
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load available strategies
+        loadStrategies();
+        
+        const triggerBtn = document.getElementById('triggerExampleBtn');
+        const strategySelect = document.getElementById('strategySelect');
+        
+        if (triggerBtn) {
+            triggerBtn.addEventListener('click', function() {
+                // Show loading state
+                triggerBtn.disabled = true;
+                triggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+                
+                // Get selected strategy
+                const strategyId = strategySelect.value;
+                
+                // Call the API endpoint to trigger the example
+                fetch('/demo/trigger_snap_example', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        strategy_id: strategyId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Trigger response:', data);
+                    // Reset button state
+                    triggerBtn.disabled = false;
+                    triggerBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Trigger SNAP Example';
+                    
+                    if (!data.success) {
+                        console.error('Error triggering example:', data.message);
+                        alert('Error triggering example: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Reset button state
+                    triggerBtn.disabled = false;
+                    triggerBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Trigger SNAP Example';
+                    alert('Error triggering example: ' + error.message);
+                });
+            });
+        }
+    });
+    
+    // Function to animate the trade card when a new signal arrives
+    function animateTradeCard() {
+        const card = document.getElementById('tradeCard');
+        card.classList.add('signal-animation');
+        
+        // Remove the animation class after it completes
+        setTimeout(() => {
+            card.classList.remove('signal-animation');
+        }, 2000);
+    }
+    
+    // Function to add a signal log entry
+    function addSignalLogEntry(signal) {
+        const container = document.getElementById('signalLogContainer');
+        const entry = document.createElement('div');
+        entry.className = 'list-group-item border-0 px-0';
+        
+        const timestamp = new Date();
+        const timeStr = 'just now';
+        
+        entry.innerHTML = `
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${signal.symbol} Match Detected</h6>
+                <small class="text-muted">${timeStr}</small>
+            </div>
+            <p class="mb-1 small">OG Strategy pattern match with ${Math.round(signal.confidence * 100)}% confidence</p>
+        `;
+        
+        // Add at the top
+        container.insertBefore(entry, container.firstChild);
+    }
+    
+    // Function to format the expiration date
+    function formatExpirationDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            return `${parts[1]}/${parts[2]}/${parts[0]}`;
+        }
+        return dateStr;
+    }
+    
+    // Function to update the trade card with signal data
+    function updateTradeCard(signal) {
+        // Update symbol and price
+        document.getElementById('tradeSymbol').textContent = signal.symbol;
+        document.getElementById('tradePrice').textContent = '$' + signal.price.toFixed(2);
+        
+        // Update direction
+        const directionEl = document.getElementById('tradeDirection');
+        directionEl.textContent = signal.direction;
+        directionEl.className = signal.direction === 'BULLISH' ? 'badge bg-success me-2' : 'badge bg-danger me-2';
+        
+        // Update confidence
+        const confidencePercent = Math.round(signal.confidence * 100);
+        document.getElementById('confidenceValue').textContent = confidencePercent + '%';
+        document.getElementById('confidenceFill').style.width = confidencePercent + '%';
+        
+        // Update setup type
+        document.getElementById('setupType').textContent = signal.setup_type;
+        
+        // Update key levels
+        if (signal.key_levels) {
+            document.getElementById('entryLevel').textContent = '$' + signal.key_levels.entry;
+            document.getElementById('stopLevel').textContent = '$' + signal.key_levels.stop;
+            document.getElementById('target1Level').textContent = '$' + signal.key_levels.target1;
+            document.getElementById('target2Level').textContent = '$' + signal.key_levels.target2;
+        }
+        
+        // Update contract details
+        if (signal.contract) {
+            document.getElementById('strikePrice').textContent = '$' + signal.contract.strike;
+            document.getElementById('expirationDate').textContent = formatExpirationDate(signal.contract.expiration);
+            document.getElementById('contractType').textContent = signal.contract.type;
+            
+            // Update trade ID
+            const symbol = signal.symbol;
+            const type = signal.contract.type === 'CALL' ? 'C' : 'P';
+            const expDate = signal.contract.expiration.replace(/-/g, '');
+            const strike = (signal.contract.strike * 100).toString().padStart(8, '0');
+            document.getElementById('tradeId').textContent = `${symbol}-${type}-${expDate.substring(2)}-${strike}`;
+        }
+        
+        // Update timeframes
+        if (signal.chart_timeframes) {
+            const timeframeContainer = document.getElementById('timeframeContainer');
+            timeframeContainer.innerHTML = '';
+            
+            for (const [timeframe, bias] of Object.entries(signal.chart_timeframes)) {
+                const badge = document.createElement('span');
+                badge.className = `timeframe-badge ${bias.toLowerCase()}`;
+                badge.textContent = `${timeframe}: ${bias}`;
+                timeframeContainer.appendChild(badge);
+            }
+        }
+        
+        // Update technical signals
+        // This would be more dynamic in production
+        
+        // Update summary
+        if (signal.summary) {
+            document.getElementById('tradeSummary').textContent = signal.summary;
+        }
+        
+        // Update timestamp
+        document.getElementById('signalTimestamp').textContent = 'Signal generated: ' + signal.timestamp;
+        
+        // Add animation
+        const tradeCard = document.getElementById('tradeCard');
+        tradeCard.classList.add('trade-card', signal.direction === 'BULLISH' ? 'trade-bullish' : 'trade-bearish', 'signal-animation');
+        
+        // Add to signal log
+        addToSignalLog(`${signal.symbol} Match Detected`, 'just now', `OG Strategy pattern match with ${confidencePercent}% confidence`);
+    }
+    
+    // Function to format expiration date
+    function formatExpirationDate(dateString) {
+        const date = new Date(dateString);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    }
+    
+    // Function to add item to signal log
+    function addToSignalLog(title, time, description) {
+        const container = document.getElementById('signalLogContainer');
+        const logItem = document.createElement('div');
+        logItem.className = 'list-group-item border-0 px-0';
+        logItem.innerHTML = `
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${title}</h6>
+                <small class="text-muted">${time}</small>
+            </div>
+            <p class="mb-1 small">${description}</p>
+        `;
+        
+        // Add to the beginning
+        container.insertBefore(logItem, container.firstChild);
+    }
+    
+    // Set up button event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current signal data from display
+        function getCurrentSignalData() {
+            const symbol = document.getElementById('tradeSymbol').textContent;
+            const direction = document.getElementById('tradeDirection').textContent;
+            const price = parseFloat(document.getElementById('tradePrice').textContent.replace('$', ''));
+            const confidence = parseFloat(document.getElementById('confidenceValue').textContent) / 100;
+            const strike = parseFloat(document.getElementById('strikePrice').textContent.replace('$', ''));
+            const expiration = document.getElementById('expirationDate').textContent;
+            const contractType = document.getElementById('contractType').textContent;
+            
+            return {
+                symbol: symbol,
+                direction: direction,
+                price: price,
+                confidence: confidence,
+                contract: {
+                    strike: strike,
+                    expiration: formatDateForAPI(expiration),
+                    type: contractType
+                }
+            };
+        }
+        
+        // Convert MM/DD/YYYY to YYYY-MM-DD
+        function formatDateForAPI(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[0]}-${parts[1]}`;
+            }
+            return dateStr;
+        }
+        
+        // Generic function to handle API calls with loading state
+        function callAPI(endpoint, button, data, successMessage) {
+            // Save original button text
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+            
+            // Call the API
+            fetch(`/demo/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                // Reset button state
+                button.disabled = false;
+                button.innerHTML = originalText;
+                
+                if (result.success) {
+                    // Add success message to log
+                    addToSignalLog(
+                        successMessage, 
+                        'just now', 
+                        result.message || 'Action completed successfully'
+                    );
+                    
+                    // Show confirmation toast
+                    showToast('Success', result.message || successMessage, 'success');
+                } else {
+                    // Show error toast
+                    showToast('Error', result.message || 'An error occurred', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error(`Error in ${endpoint}:`, error);
+                // Reset button state
+                button.disabled = false;
+                button.innerHTML = originalText;
+                // Show error toast
+                showToast('Error', error.message || 'An unexpected error occurred', 'danger');
+            });
+        }
+        
+        // Simple toast notification
+        function showToast(title, message, type) {
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                // Create toast container if it doesn't exist
+                const container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                document.body.appendChild(container);
+            }
+            
+            const toastId = 'toast-' + Date.now();
+            const toastHTML = `
+                <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-${type} text-white">
+                        <strong class="me-auto">${title}</strong>
+                        <small>just now</small>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('toastContainer').innerHTML += toastHTML;
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+            toast.show();
+            
+            // Remove after it's hidden
+            toastEl.addEventListener('hidden.bs.toast', function() {
+                toastEl.remove();
+            });
+        }
+        
+        // Send to Telegram button
+        const telegramButton = document.getElementById('sendTelegramBtn');
+        if (telegramButton) {
+            telegramButton.addEventListener('click', function() {
+                const data = getCurrentSignalData();
+                callAPI(
+                    'send_telegram', 
+                    telegramButton, 
+                    data, 
+                    `${data.symbol} Signal Sent to Telegram`
+                );
+            });
+        }
+        
+        // Execute Paper Trade button
+        const paperTradeButton = document.getElementById('executePaperTradeBtn');
+        if (paperTradeButton) {
+            paperTradeButton.addEventListener('click', function() {
+                const data = getCurrentSignalData();
+                callAPI(
+                    'execute_paper_trade', 
+                    paperTradeButton, 
+                    data, 
+                    `Paper Trade Executed: ${data.symbol} ${data.direction}`
+                );
+            });
+        }
+        
+        // Execute Live Trade button
+        const liveTradeButton = document.getElementById('executeLiveTradeBtn');
+        if (liveTradeButton) {
+            liveTradeButton.addEventListener('click', function() {
+                const data = getCurrentSignalData();
+                callAPI(
+                    'execute_live_trade', 
+                    liveTradeButton, 
+                    data, 
+                    `Live Trade Executed: ${data.symbol} ${data.direction}`
+                );
+            });
+        }
+        
+        // Analyze Similar Setups button
+        const analyzeSimilarButton = document.getElementById('analyzeSimilarSetupsBtn');
+        if (analyzeSimilarButton) {
+            analyzeSimilarButton.addEventListener('click', function() {
+                const data = getCurrentSignalData();
+                callAPI(
+                    'analyze_similar_setups', 
+                    analyzeSimilarButton, 
+                    data, 
+                    `Similar Setups Analysis: ${data.symbol}`
+                );
+            });
+        }
+        
+        // Settings button
+        const settingsButton = document.getElementById('settingsBtn');
+        if (settingsButton) {
+            settingsButton.addEventListener('click', function() {
+                // For now, just redirect to settings page
+                window.location.href = '/settings';
+            });
+        }
+    });
+</script>
+
+<!-- Toast container for notifications -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3">
+</div>
+{% endblock %}
