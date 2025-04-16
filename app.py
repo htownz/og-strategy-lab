@@ -5,6 +5,8 @@ from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from webhook_routes import register_webhook_blueprint
+from alpaca_routes import register_alpaca_blueprint
+from flask import render_template
 
 # Configure logging
 logging.basicConfig(
@@ -102,6 +104,7 @@ def get_settings():
         return jsonify({'error': str(e)}), 500
 
 register_webhook_blueprint(app)
+register_alpaca_blueprint(app)
 
 @app.route('/discord')
 def discord_config():
