@@ -100,8 +100,14 @@ def get_settings():
     except Exception as e:
         logger.error(f"Error retrieving settings: {e}")
         return jsonify({'error': str(e)}), 500
+
 register_webhook_blueprint(app)
 
+@app.route('/discord')
+def discord_config():
+    """Discord configuration page"""
+    return render_template('discord.html')
+    
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
