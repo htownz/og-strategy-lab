@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+from webhook_routes import register_webhook_blueprint
 
 # Configure logging
 logging.basicConfig(
@@ -99,6 +100,7 @@ def get_settings():
     except Exception as e:
         logger.error(f"Error retrieving settings: {e}")
         return jsonify({'error': str(e)}), 500
+register_webhook_blueprint(app)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
