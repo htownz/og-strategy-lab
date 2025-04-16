@@ -1,3 +1,6 @@
 flask==2.3.3
 gunicorn==21.2.0
 eventlet==0.34.2
+flask-sqlalchemy==3.1.1
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
