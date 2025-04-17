@@ -28,7 +28,7 @@ class SignalService:
         
         logger.info("Signal service initialized")
         
-    def generate_signal(self, symbol, direction, confidence, price, indicators=None):
+    def generate_signal(self, symbol, direction, confidence, price, indicators=None, strategy_name=None, timeframe=None):
         """
         Generate a new trading signal
         
@@ -38,15 +38,17 @@ class SignalService:
             confidence: Signal confidence (0.0 to 1.0)
             price: Asset price at signal time
             indicators: Dictionary of technical indicators
+            strategy_name: Optional name of the strategy that generated this signal
+            timeframe: Optional timeframe for the signal
             
         Returns:
             Created Signal object or None on error
         """
         try:
             # Create indicators JSON if provided
-            indicators_json = None
-            if indicators:
-                indicators_json = json.dumps(indicators)
+            indicators_json = indicators
+            if indicators and isinstance(indicators, dict):
+                indicators_json = indicators
             
             # Create new signal
             signal = Signal(
@@ -55,7 +57,9 @@ class SignalService:
                 confidence=float(confidence),
                 price_at_signal=float(price),
                 indicators=indicators_json,
-                timestamp=datetime.now()
+                timestamp=datetime.utcnow(),
+                strategy_name=strategy_name,
+                timeframe=timeframe
             )
             
             # Save to database
@@ -224,7 +228,9 @@ class SignalService:
                     direction=direction,
                     confidence=confidence,
                     price=current_price,
-                    indicators=indicators
+                    indicators=indicators,
+                    strategy_name="OG Strategy",
+                    timeframe=timeframe
                 )
                 
             elif bearish:
@@ -281,7 +287,9 @@ class SignalService:
                     direction=direction,
                     confidence=confidence,
                     price=current_price,
-                    indicators=indicators
+                    indicators=indicators,
+                    strategy_name="OG Strategy",
+                    timeframe=timeframe
                 )
             
             else:
@@ -304,7 +312,7 @@ class SignalService:
             Dictionary with scan results
         """
         results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.utcnow().isoformat(),
             'timeframe': timeframe,
             'total_symbols': len(symbols),
             'signals': [],
