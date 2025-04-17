@@ -5,7 +5,7 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --worker-class eventlet --workers 1 app:app",
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --worker-class eventlet --workers 1 --threads 8 --timeout 120 app:app",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
