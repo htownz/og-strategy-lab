@@ -7,3 +7,5 @@ python-dotenv==1.0.0
 requests==2.31.0
 alpaca-trade-api==3.0.0
 pandas==2.0.3
+flask-socketio==5.3.4
+eventlet==0.34.2
