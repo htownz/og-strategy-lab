@@ -110,8 +110,8 @@ def get_settings():
         return jsonify({'error': str(e)}), 500
 
 register_webhook_blueprint(app)
-register_alpaca_blueprint(app)
 register_signal_blueprint(app)
+register_alpaca_blueprint(app)
 
 @app.route('/discord')
 def discord_config():
