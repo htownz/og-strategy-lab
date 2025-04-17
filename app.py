@@ -8,6 +8,7 @@ from webhook_routes import register_webhook_blueprint
 from alpaca_routes import register_alpaca_blueprint
 from flask import render_template
 from socketio_service import socketio, get_socketio_service
+from signal_routes import register_signal_blueprint
 
 # Configure logging
 logging.basicConfig(
@@ -110,6 +111,7 @@ def get_settings():
 
 register_webhook_blueprint(app)
 register_alpaca_blueprint(app)
+register_signal_blueprint(app)
 
 @app.route('/discord')
 def discord_config():
