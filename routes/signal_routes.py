@@ -17,10 +17,11 @@ def list_signals():
         limit = int(request.args.get('limit', 20))
         symbol = request.args.get('symbol')
         direction = request.args.get('direction')
+        signal_id = request.args.get('signal_id')
         
         # Get signals
         service = get_signal_service()
-        signals = service.get_recent_signals(limit, symbol, direction)
+        signals = service.get_recent_signals(limit, symbol, direction, signal_id)
         
         return jsonify({
             'success': True,
